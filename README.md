@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.1.4` / versionCode `5`.
+- Current debug version: `0.1.5` / versionCode `6`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -38,6 +38,7 @@ trained radiation specialist.
 - Initial 60-second baseline/refresh workflow with Good/Fair/Poor/Invalid
   scoring.
 - Baseline summary persistence across app restarts.
+- Baseline age display and a soft refresh reminder after 72 hours.
 - Live baseline capture hot-pixel map generation and bounded compact mask
   persistence across app restarts.
 - Quick scan mode after a usable baseline, showing candidate events/minute,

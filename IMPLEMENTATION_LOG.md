@@ -4,6 +4,55 @@
 
 ### Summary
 
+Added the first stale-baseline reminder UI. The main screen now shows when the
+last baseline was collected and recommends a refresh after 72 hours without new
+dark data.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.1.5` / versionCode `6` for update-over-install
+  after the stale-reminder APK refresh.
+- Added baseline age text to the baseline summary.
+- Added a soft baseline refresh recommendation after 72 hours.
+- Updated Start Here guidance to recommend baseline refresh when a usable
+  baseline is stale.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Baseline reminders currently cover age only. Other triggers from the build
+  plan, such as app update, OS update, temperature/noise changes, and repeated
+  limited scans, still need implementation.
+
+### Recommended Next Tasks
+
+- Add a local event log for completed scans.
+- Add multi-camera weighted scan aggregation.
+- Expand baseline reminders beyond the 72-hour age rule.
+
+---
+
+## 2026-06-16
+
+### Summary
+
 Continued the detector core after the timer/Stop and Quick scan batch. Baseline
 captures now persist compact event-rate statistics, and Quick scan evaluates
 candidate counts against those baseline stats to show a conservative Z-score

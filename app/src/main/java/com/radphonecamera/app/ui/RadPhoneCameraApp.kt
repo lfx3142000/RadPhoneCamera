@@ -435,6 +435,7 @@ private fun BaselineSummary(result: BaselineResult) {
         BaselineQuality.Poor -> MaterialTheme.colorScheme.secondary
         BaselineQuality.Invalid -> MaterialTheme.colorScheme.error
     }
+    val nowMillis = System.currentTimeMillis()
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
@@ -448,6 +449,18 @@ private fun BaselineSummary(result: BaselineResult) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary,
         )
+        Text(
+            text = result.ageText(nowMillis),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        if (result.isStale(nowMillis)) {
+            Text(
+                text = "Baseline refresh recommended after 72 hours without new dark data.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
         if (result.cameraId != null || result.hotPixelCount > 0) {
             Text(
                 text = "Camera ${result.cameraId ?: "unknown"} baseline, ${result.hotPixelCount} hot pixels mapped.",
@@ -606,7 +619,25 @@ private fun firstUseMessage(
     report == null -> "Grant camera access, then wait for the device check to list usable cameras."
     runningBaselineCameraId != null -> "Baseline is running. Keep the phone dark and still until the count finishes or tap Stop."
     runningScanCameraId != null -> "Quick scan is running. Keep the phone face down, dark, and still until the timer finishes."
+    baselineResult?.isStale() == true -> "Baseline is usable, but a refresh is recommended. Tap Start baseline with the phone face down and still."
     baselineResult?.enablesNormalAlarmMode == true -> "Baseline is ready. Use Quick scan for a 30-second dark scan, or repeat baseline if conditions change."
     baselineResult != null -> "Baseline is not good enough yet. Try Start baseline again with the phone face down and completely still."
     else -> "Choose the best back camera, then tap Start baseline before using detector features."
 }
+
+private fun BaselineResult.isStale(nowMillis: Long = System.currentTimeMillis()): Boolean =
+    collectedAtMillis > 0L && nowMillis - collectedAtMillis > BASELINE_STALE_MILLIS
+
+private fun BaselineResult.ageText(nowMillis: Long): String {
+    if (collectedAtMillis <= 0L) return "Last baseline: not recorded."
+    val elapsedMillis = (nowMillis - collectedAtMillis).coerceAtLeast(0L)
+    val elapsedHours = elapsedMillis / MILLIS_PER_HOUR
+    return when {
+        elapsedHours < 1L -> "Last baseline: less than 1 hour ago."
+        elapsedHours < 24L -> "Last baseline: ${elapsedHours}h ago."
+        else -> "Last baseline: ${elapsedHours / 24L}d ago."
+    }
+}
+
+private const val MILLIS_PER_HOUR = 60L * 60L * 1_000L
+private const val BASELINE_STALE_MILLIS = 72L * MILLIS_PER_HOUR
