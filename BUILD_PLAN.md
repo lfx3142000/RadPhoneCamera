@@ -8,6 +8,7 @@ Last updated: 2026-06-16
 | ---- | ------ | ----- |
 | Repository agent workflow | Complete | Added `AGENTS.md` with coding-first autonomous run rules. |
 | Implementation log | Complete | Added `IMPLEMENTATION_LOG.md` for run summaries, tests, blockers, and next tasks. |
+| APK delivery process | Complete | Added standing build/commit/push/APK delivery defaults in `APK_DELIVERY.md`. |
 | Android implementation | Not started | Next recommended task is Phase 0 project setup and Camera2 discovery. |
 
 Agent runs should update this section and `IMPLEMENTATION_LOG.md` after completed work.

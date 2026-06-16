@@ -19,6 +19,36 @@ plan.
 - Respect required tool, platform, filesystem, network, credential, and
   destructive-action approval flows. Do not bypass safeguards.
 
+## Standing Delivery Authorization
+
+The user has authorized agents to build, commit, push, and provide APK files
+without asking for conversational confirmation when those actions are part of
+normal implementation work.
+
+- Build the app after implementation changes whenever feasible.
+- Commit completed, verified work without asking whether to commit.
+- Push committed work to the current tracked branch without asking whether to
+  push.
+- Produce a debug APK by default and provide the local absolute path in the
+  final response.
+- If a release APK is requested later, build it only when signing configuration
+  is already present or explicitly provided.
+- If the Codex environment requires a sandbox, credential, network, filesystem,
+  or destructive-action approval prompt, use the required approval flow with a
+  narrow command scope. Do not ask a separate chat question first.
+
+Default delivery commands once the Android project exists:
+
+```text
+./gradlew test assembleDebug
+git add .
+git commit -m "<concise implementation summary>"
+git push
+```
+
+On Windows, use the checked-in Gradle wrapper command that exists in the repo,
+such as `.\gradlew.bat assembleDebug`.
+
 ## When To Ask
 
 Ask the user only when the work depends on:
@@ -78,6 +108,7 @@ possible:
   tasks, tests or builds run, files changed, blockers, and recommended next
   tasks.
 - Update the progress/status area in `BUILD_PLAN.md`.
+- Update `APK_DELIVERY.md` when the build or artifact delivery process changes.
 - Mark tasks as completed, in progress, or blocked without rewriting the
   product strategy.
 - Do not weaken safety limitations, privacy constraints, or marketing
@@ -94,5 +125,7 @@ A run is complete when:
 - relevant tests or checks were run, or the reason they could not run is known,
 - `IMPLEMENTATION_LOG.md` is updated,
 - `BUILD_PLAN.md` progress is updated when task status changed,
+- a commit is created and pushed when changes are complete and verified,
+- any generated APK path is provided when an APK build succeeds,
 - the final response names what changed, what was verified, and the next
   recommended build-plan task.
