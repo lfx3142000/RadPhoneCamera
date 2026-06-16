@@ -26,12 +26,34 @@ data class ManualControlAttempt(
     val focusLocked: Boolean,
 )
 
+data class LumaFrameSnapshot(
+    val width: Int,
+    val height: Int,
+    val luma: ByteArray,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is LumaFrameSnapshot) return false
+        return width == other.width &&
+            height == other.height &&
+            luma.contentEquals(other.luma)
+    }
+
+    override fun hashCode(): Int {
+        var result = width
+        result = 31 * result + height
+        result = 31 * result + luma.contentHashCode()
+        return result
+    }
+}
+
 data class FrameProbeResult(
     val cameraId: String,
     val framesAnalyzed: Int,
     val manualControlAttempt: ManualControlAttempt,
     val latestStats: FrameStats?,
     val latestDarkState: DarkState?,
+    val latestSnapshot: LumaFrameSnapshot?,
     val error: String?,
 )
 
@@ -73,6 +95,7 @@ class FrameProbe(
         var imageReader: ImageReader? = null
         var latestStats: FrameStats? = null
         var latestDarkState: DarkState? = null
+        var latestSnapshot: LumaFrameSnapshot? = null
         var frameCount = 0
         var manualAttempt = ManualControlAttempt(
             exposureLocked = false,
@@ -95,6 +118,7 @@ class FrameProbe(
                     manualControlAttempt = manualAttempt,
                     latestStats = latestStats,
                     latestDarkState = latestDarkState,
+                    latestSnapshot = latestSnapshot,
                     error = error,
                 ),
             )
@@ -124,8 +148,10 @@ class FrameProbe(
                                 try {
                                     val stats = FrameStatsCalculator.fromImage(image)
                                     val darkState = DarkStateClassifier.classify(stats)
+                                    val snapshot = image.copyLumaSnapshot()
                                     latestStats = stats
                                     latestDarkState = darkState
+                                    latestSnapshot = snapshot
                                     frameCount += 1
                                     listener.onProgress(
                                         FrameProbeResult(
@@ -134,6 +160,7 @@ class FrameProbe(
                                             manualControlAttempt = manualAttempt,
                                             latestStats = stats,
                                             latestDarkState = darkState,
+                                            latestSnapshot = snapshot,
                                             error = null,
                                         ),
                                     )
@@ -274,6 +301,26 @@ class FrameProbe(
             ),
             latestStats = null,
             latestDarkState = null,
+            latestSnapshot = null,
             error = error,
         )
+
+    private fun android.media.Image.copyLumaSnapshot(): LumaFrameSnapshot {
+        val plane = planes.first()
+        val buffer = plane.buffer.duplicate()
+        val bytes = ByteArray(width * height)
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val sourceIndex = y * plane.rowStride + x * plane.pixelStride
+                if (sourceIndex < buffer.limit()) {
+                    bytes[y * width + x] = buffer.get(sourceIndex)
+                }
+            }
+        }
+        return LumaFrameSnapshot(
+            width = width,
+            height = height,
+            luma = bytes,
+        )
+    }
 }

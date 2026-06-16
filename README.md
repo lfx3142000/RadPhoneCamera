@@ -18,6 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
+- Current debug version: `0.1.2` / versionCode `3`.
 
 ## Implemented So Far
 
@@ -32,6 +33,8 @@ trained radiation specialist.
 - Dark-frame quality classification.
 - Initial 60-second baseline/refresh workflow with Good/Fair/Poor/Invalid
   scoring.
+- Baseline summary persistence across app restarts.
+- Live baseline capture hot-pixel map generation summary.
 - Hot-pixel map generation from dark frames.
 - Sparse bright-cluster event detection.
 - Rolling baseline model and Z-score calculation.

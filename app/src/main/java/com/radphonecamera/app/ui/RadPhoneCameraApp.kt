@@ -394,6 +394,13 @@ private fun BaselineSummary(result: BaselineResult) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary,
         )
+        if (result.cameraId != null || result.hotPixelCount > 0) {
+            Text(
+                text = "Camera ${result.cameraId ?: "unknown"} baseline, ${result.hotPixelCount} hot pixels mapped.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
     }
 }
 

@@ -47,6 +47,9 @@ data class BaselineResult(
     val quality: BaselineQuality,
     val progress: BaselineProgress,
     val message: String,
+    val cameraId: String? = null,
+    val hotPixelCount: Int = 0,
+    val collectedAtMillis: Long = 0L,
 ) {
     val enablesNormalAlarmMode: Boolean =
         quality == BaselineQuality.Good || quality == BaselineQuality.Fair
@@ -88,4 +91,3 @@ object BaselineQualityScorer {
         )
     }
 }
-

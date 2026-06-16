@@ -5,4 +5,5 @@ build/
 local.properties
 *.iml
 app/build/
+RadPhoneCamera-debug.apk
 

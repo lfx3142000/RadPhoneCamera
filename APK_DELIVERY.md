@@ -48,6 +48,10 @@ Android project setup is complete and the debug APK builds successfully.
 
 - Current debug APK path:
   `C:\Users\fhidi\Documents\Rad phone camera\app\build\outputs\apk\debug\app-debug.apk`
+- Current GitHub zip artifact:
+  `RadPhoneCamera-debug.zip`
+- Current debug app version:
+  `0.1.2` / versionCode `3`
 - Build command used:
   `.\gradlew.bat test assembleDebug`
 - Local SDK path:

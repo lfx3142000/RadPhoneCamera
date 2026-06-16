@@ -4,6 +4,63 @@
 
 ### Summary
 
+Continued build-plan work while preserving the Start Here first-use guidance for
+testing. The app version was bumped so the APK can install over the previous
+debug build, baseline summaries now persist locally, and guided baseline capture
+now generates a hot-pixel map count from live dark frames.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.1.2` / versionCode `3` for update-over-install.
+- Kept the Start Here first-use guidance visible for continued first-use
+  testing.
+- Added local baseline persistence with camera ID, quality, frame counts,
+  hot-pixel count, and collection timestamp.
+- Added luma frame snapshots to the camera probe.
+- Wired guided baseline capture into bounded live hot-pixel map generation.
+- Updated UI to show saved baseline camera and hot-pixel count.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `.gitignore`
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineQuality.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineStore.kt`
+- `app/src/main/java/com/radphonecamera/app/camera/FrameProbe.kt`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Hot-pixel map count is generated and persisted, but the full map is not yet
+  stored or fed into the live detector loop.
+- Live detector loop and event logging still need implementation.
+
+### Recommended Next Tasks
+
+- Persist the full hot-pixel map or compact mask for the selected camera.
+- Feed baseline/hot-pixel data into a live scan loop.
+- Add user-facing active detector status after baseline completion.
+
+---
+
+## 2026-06-16
+
+### Summary
+
 Improved the first-run user experience after device feedback. The app now tells
 the user what to do first, explains how to collect a dark baseline, uses clearer
 button labels, and provides a Stop button for active camera tests or baseline

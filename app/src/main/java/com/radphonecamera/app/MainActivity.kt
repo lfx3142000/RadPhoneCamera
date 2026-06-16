@@ -16,12 +16,16 @@ import androidx.compose.runtime.setValue
 import com.radphonecamera.app.baseline.BaselineProgress
 import com.radphonecamera.app.baseline.BaselineQualityScorer
 import com.radphonecamera.app.baseline.BaselineResult
+import com.radphonecamera.app.baseline.BaselineStore
 import com.radphonecamera.app.camera.CameraRepository
 import com.radphonecamera.app.camera.DeviceCameraReport
 import com.radphonecamera.app.camera.FrameProbe
 import com.radphonecamera.app.camera.FrameProbeListener
 import com.radphonecamera.app.camera.FrameProbeResult
 import com.radphonecamera.app.camera.FrameProbeSession
+import com.radphonecamera.app.camera.LumaFrameSnapshot
+import com.radphonecamera.app.detector.DarkQuality
+import com.radphonecamera.app.detector.HotPixelMap
 import com.radphonecamera.app.ui.RadPhoneCameraApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,7 +44,8 @@ class MainActivity : ComponentActivity() {
             var probeResult by remember { mutableStateOf<FrameProbeResult?>(null) }
             var runningBaselineCameraId by remember { mutableStateOf<String?>(null) }
             var baselineProgress by remember { mutableStateOf(BaselineProgress()) }
-            var baselineResult by remember { mutableStateOf<BaselineResult?>(null) }
+            val baselineStore = remember { BaselineStore(this@MainActivity) }
+            var baselineResult by remember { mutableStateOf(baselineStore.load()) }
             var activeProbeSession by remember { mutableStateOf<FrameProbeSession?>(null) }
             val scope = rememberCoroutineScope()
             val permissionLauncher = rememberLauncherForActivityResult(
@@ -65,6 +70,7 @@ class MainActivity : ComponentActivity() {
 
             fun runBaseline(cameraId: String) {
                 var progress = BaselineProgress()
+                val baselineSnapshots = mutableListOf<LumaFrameSnapshot>()
                 activeProbeSession?.stop()
                 runningBaselineCameraId = cameraId
                 runningProbeCameraId = null
@@ -77,6 +83,19 @@ class MainActivity : ComponentActivity() {
                     listener = object : FrameProbeListener {
                         override fun onProgress(result: FrameProbeResult) {
                             progress = progress.record(result.latestDarkState?.quality)
+                            if (
+                                result.latestDarkState?.quality == DarkQuality.Good ||
+                                result.latestDarkState?.quality == DarkQuality.Fair
+                            ) {
+                                result.latestSnapshot?.let { snapshot ->
+                                    if (
+                                        baselineSnapshots.size < MAX_BASELINE_SNAPSHOTS &&
+                                        result.framesAnalyzed % BASELINE_SNAPSHOT_INTERVAL == 0
+                                    ) {
+                                        baselineSnapshots += snapshot
+                                    }
+                                }
+                            }
                             runOnUiThread {
                                 baselineProgress = progress
                                 probeResult = result
@@ -84,10 +103,16 @@ class MainActivity : ComponentActivity() {
                         }
 
                         override fun onCompleted(result: FrameProbeResult) {
+                            val hotPixelCount = baselineSnapshots.hotPixelCount()
                             val finalResult = BaselineQualityScorer.score(
                                 progress = progress,
                                 error = result.error,
+                            ).copy(
+                                cameraId = cameraId,
+                                hotPixelCount = hotPixelCount,
+                                collectedAtMillis = System.currentTimeMillis(),
                             )
+                            baselineStore.save(finalResult)
                             runOnUiThread {
                                 baselineProgress = progress
                                 baselineResult = finalResult
@@ -155,4 +180,20 @@ class MainActivity : ComponentActivity() {
 
     private fun hasCameraPermission(): Boolean =
         checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+
+    private fun List<LumaFrameSnapshot>.hotPixelCount(): Int {
+        val first = firstOrNull() ?: return 0
+        val matchingFrames = filter { it.width == first.width && it.height == first.height }
+        if (matchingFrames.isEmpty()) return 0
+        return HotPixelMap.fromDarkFrames(
+            frames = matchingFrames.map { it.luma },
+            width = first.width,
+            height = first.height,
+        ).size
+    }
+
+    private companion object {
+        const val MAX_BASELINE_SNAPSHOTS = 120
+        const val BASELINE_SNAPSHOT_INTERVAL = 5
+    }
 }
