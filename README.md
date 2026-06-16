@@ -18,7 +18,8 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.1.2` / versionCode `3`.
+- Current debug version: `0.1.3` / versionCode `4`.
+- Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
 
@@ -29,12 +30,18 @@ trained radiation specialist.
 - Manual exposure, ISO, focus, and flash-off capture request attempts.
 - Luma mean, variance, min/max frame metrics.
 - First-use guidance that tells the user to start with baseline collection.
-- Stop button for active camera tests and baseline collection.
+- Visible countdown for timed camera tests, 60-second baseline collection, and
+  30-second quick scans.
+- Stop button for active camera tests, baseline collection, and quick scans.
+- Stale camera callbacks are ignored after Stop or after a new capture starts.
 - Dark-frame quality classification.
 - Initial 60-second baseline/refresh workflow with Good/Fair/Poor/Invalid
   scoring.
 - Baseline summary persistence across app restarts.
-- Live baseline capture hot-pixel map generation summary.
+- Live baseline capture hot-pixel map generation and bounded compact mask
+  persistence across app restarts.
+- Quick scan mode after a usable baseline, showing candidate events/minute,
+  valid dark-frame fraction, scan status, and hot-pixel-mask status.
 - Hot-pixel map generation from dark frames.
 - Sparse bright-cluster event detection.
 - Rolling baseline model and Z-score calculation.

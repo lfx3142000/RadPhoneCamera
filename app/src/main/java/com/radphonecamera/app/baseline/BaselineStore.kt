@@ -1,6 +1,7 @@
 package com.radphonecamera.app.baseline
 
 import android.content.Context
+import com.radphonecamera.app.detector.HotPixelMap
 
 class BaselineStore(
     context: Context,
@@ -29,7 +30,23 @@ class BaselineStore(
         )
     }
 
-    fun save(result: BaselineResult) {
+    fun loadHotPixelMap(cameraId: String): HotPixelMap? {
+        if (prefs.getString(KEY_HOT_PIXEL_CAMERA_ID, null) != cameraId) return null
+        val width = prefs.getInt(KEY_HOT_PIXEL_WIDTH, 0)
+        val height = prefs.getInt(KEY_HOT_PIXEL_HEIGHT, 0)
+        if (width <= 0 || height <= 0) return null
+        val packedHotPixels = prefs.getString(KEY_HOT_PIXEL_PACKED, null).orEmpty()
+        return HotPixelMap.fromPackedString(
+            width = width,
+            height = height,
+            packedHotPixels = packedHotPixels,
+        )
+    }
+
+    fun save(
+        result: BaselineResult,
+        hotPixelMap: HotPixelMap? = null,
+    ) {
         prefs.edit()
             .putString(KEY_QUALITY, result.quality.name)
             .putString(KEY_MESSAGE, result.message)
@@ -41,7 +58,27 @@ class BaselineStore(
             .putInt(KEY_INVALID_FRAMES, result.progress.invalidFrames)
             .putInt(KEY_HOT_PIXEL_COUNT, result.hotPixelCount)
             .putLong(KEY_COLLECTED_AT, result.collectedAtMillis)
+            .writeHotPixelMap(result.cameraId, hotPixelMap)
             .apply()
+    }
+
+    private fun android.content.SharedPreferences.Editor.writeHotPixelMap(
+        cameraId: String?,
+        hotPixelMap: HotPixelMap?,
+    ): android.content.SharedPreferences.Editor {
+        if (cameraId == null || hotPixelMap == null) {
+            remove(KEY_HOT_PIXEL_CAMERA_ID)
+            remove(KEY_HOT_PIXEL_WIDTH)
+            remove(KEY_HOT_PIXEL_HEIGHT)
+            remove(KEY_HOT_PIXEL_PACKED)
+            return this
+        }
+
+        putString(KEY_HOT_PIXEL_CAMERA_ID, cameraId)
+        putInt(KEY_HOT_PIXEL_WIDTH, hotPixelMap.width)
+        putInt(KEY_HOT_PIXEL_HEIGHT, hotPixelMap.height)
+        putString(KEY_HOT_PIXEL_PACKED, hotPixelMap.toPackedString(MAX_STORED_HOT_PIXELS))
+        return this
     }
 
     private fun BaselineQuality.defaultMessage(): String = when (this) {
@@ -62,5 +99,10 @@ class BaselineStore(
         private const val KEY_INVALID_FRAMES = "invalid_frames"
         private const val KEY_HOT_PIXEL_COUNT = "hot_pixel_count"
         private const val KEY_COLLECTED_AT = "collected_at"
+        private const val KEY_HOT_PIXEL_CAMERA_ID = "hot_pixel_camera_id"
+        private const val KEY_HOT_PIXEL_WIDTH = "hot_pixel_width"
+        private const val KEY_HOT_PIXEL_HEIGHT = "hot_pixel_height"
+        private const val KEY_HOT_PIXEL_PACKED = "hot_pixel_packed"
+        private const val MAX_STORED_HOT_PIXELS = 5_000
     }
 }

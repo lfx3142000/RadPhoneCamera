@@ -51,7 +51,9 @@ Android project setup is complete and the debug APK builds successfully.
 - Current GitHub zip artifact:
   `RadPhoneCamera-debug.zip`
 - Current debug app version:
-  `0.1.2` / versionCode `3`
+  `0.1.3` / versionCode `4`
+- Artifact refresh status:
+  refreshed from the latest successful debug APK build.
 - Build command used:
   `.\gradlew.bat test assembleDebug`
 - Local SDK path:

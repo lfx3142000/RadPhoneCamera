@@ -31,6 +31,8 @@ import com.radphonecamera.app.baseline.BaselineResult
 import com.radphonecamera.app.camera.CameraCapability
 import com.radphonecamera.app.camera.DeviceCameraReport
 import com.radphonecamera.app.camera.FrameProbeResult
+import com.radphonecamera.app.detector.AlarmState
+import com.radphonecamera.app.detector.LiveScanProgress
 import java.util.Locale
 
 private val AppColors = lightColorScheme(
@@ -52,12 +54,15 @@ fun RadPhoneCameraApp(
     reportError: String?,
     runningProbeCameraId: String?,
     runningBaselineCameraId: String?,
+    runningScanCameraId: String?,
     probeResult: FrameProbeResult?,
     baselineProgress: BaselineProgress,
     baselineResult: BaselineResult?,
+    liveScanProgress: LiveScanProgress?,
     onRequestCameraPermission: () -> Unit,
     onRefresh: () -> Unit,
     onRunBaseline: (String) -> Unit,
+    onRunQuickScan: (String) -> Unit,
     onStopCapture: () -> Unit,
     onRunProbe: (String) -> Unit,
 ) {
@@ -88,6 +93,7 @@ fun RadPhoneCameraApp(
                         report = report,
                         baselineResult = baselineResult,
                         runningBaselineCameraId = runningBaselineCameraId,
+                        runningScanCameraId = runningScanCameraId,
                     )
                 }
 
@@ -96,23 +102,31 @@ fun RadPhoneCameraApp(
                         report = report,
                         loadingReport = loadingReport,
                         reportError = reportError,
+                        probeResult = probeResult,
                         baselineProgress = baselineProgress,
                         baselineResult = baselineResult,
                         runningBaselineCameraId = runningBaselineCameraId,
+                        liveScanProgress = liveScanProgress,
                         onRefresh = onRefresh,
                     )
                 }
 
                 report?.let { cameraReport ->
+                    val anyCaptureRunning = runningProbeCameraId != null ||
+                        runningBaselineCameraId != null ||
+                        runningScanCameraId != null
                     items(cameraReport.cameras, key = { it.cameraId }) { camera ->
                         CameraCard(
                             camera = camera,
                             isProbeRunning = runningProbeCameraId == camera.cameraId,
                             isBaselineRunning = runningBaselineCameraId == camera.cameraId,
-                            anyBaselineRunning = runningBaselineCameraId != null,
+                            isScanRunning = runningScanCameraId == camera.cameraId,
+                            anyCaptureRunning = anyCaptureRunning,
                             probeResult = probeResult?.takeIf { it.cameraId == camera.cameraId },
                             baselineResult = baselineResult,
+                            liveScanProgress = liveScanProgress?.takeIf { it.cameraId == camera.cameraId },
                             onRunBaseline = { onRunBaseline(camera.cameraId) },
+                            onRunQuickScan = { onRunQuickScan(camera.cameraId) },
                             onStopCapture = onStopCapture,
                             onRunProbe = { onRunProbe(camera.cameraId) },
                         )
@@ -167,6 +181,7 @@ private fun FirstUsePanel(
     report: DeviceCameraReport?,
     baselineResult: BaselineResult?,
     runningBaselineCameraId: String?,
+    runningScanCameraId: String?,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
@@ -179,7 +194,12 @@ private fun FirstUsePanel(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = firstUseMessage(report, baselineResult, runningBaselineCameraId),
+                text = firstUseMessage(
+                    report = report,
+                    baselineResult = baselineResult,
+                    runningBaselineCameraId = runningBaselineCameraId,
+                    runningScanCameraId = runningScanCameraId,
+                ),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
@@ -187,6 +207,13 @@ private fun FirstUsePanel(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
+            if (runningScanCameraId != null) {
+                Text(
+                    text = "Quick scan is running. Keep the phone dark and still until the timer finishes or tap Stop.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
         }
     }
 }
@@ -196,9 +223,11 @@ private fun StatusPanel(
     report: DeviceCameraReport?,
     loadingReport: Boolean,
     reportError: String?,
+    probeResult: FrameProbeResult?,
     baselineProgress: BaselineProgress,
     baselineResult: BaselineResult?,
     runningBaselineCameraId: String?,
+    liveScanProgress: LiveScanProgress?,
     onRefresh: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -234,10 +263,18 @@ private fun StatusPanel(
                     baselineProgress = baselineProgress,
                     baselineResult = baselineResult,
                     runningBaselineCameraId = runningBaselineCameraId,
+                    activeResult = probeResult,
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
+            liveScanProgress?.let {
+                Text(
+                    text = "Quick scan: ${it.alarmState.label}, ${it.eventsPerMinute.fixed(1)} candidate events/min, ${it.validDarkFrames}/${it.framesAnalyzed} valid dark frames.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
         }
     }
 }
@@ -247,10 +284,13 @@ private fun CameraCard(
     camera: CameraCapability,
     isProbeRunning: Boolean,
     isBaselineRunning: Boolean,
-    anyBaselineRunning: Boolean,
+    isScanRunning: Boolean,
+    anyCaptureRunning: Boolean,
     probeResult: FrameProbeResult?,
     baselineResult: BaselineResult?,
+    liveScanProgress: LiveScanProgress?,
     onRunBaseline: () -> Unit,
+    onRunQuickScan: () -> Unit,
     onStopCapture: () -> Unit,
     onRunProbe: () -> Unit,
 ) {
@@ -309,7 +349,7 @@ private fun CameraCard(
                 Button(
                     onClick = onRunProbe,
                     modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
-                    enabled = camera.supportsYuv && !isProbeRunning && !anyBaselineRunning,
+                    enabled = camera.supportsYuv && !anyCaptureRunning,
                 ) {
                     Text(if (isProbeRunning) "Probing" else "Test camera")
                 }
@@ -317,13 +357,23 @@ private fun CameraCard(
                 Button(
                     onClick = onRunBaseline,
                     modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
-                    enabled = camera.supportsYuv && !isProbeRunning && !anyBaselineRunning,
+                    enabled = camera.supportsYuv && !anyCaptureRunning,
                 ) {
                     Text(if (isBaselineRunning) "Collecting" else "Start baseline")
                 }
             }
 
-            if (isProbeRunning || isBaselineRunning) {
+            Button(
+                onClick = onRunQuickScan,
+                modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+                enabled = camera.supportsYuv &&
+                    baselineResult?.enablesNormalAlarmMode == true &&
+                    !anyCaptureRunning,
+            ) {
+                Text(if (isScanRunning) "Scanning" else "Quick scan")
+            }
+
+            if (isProbeRunning || isBaselineRunning || isScanRunning) {
                 Button(
                     onClick = onStopCapture,
                     modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
@@ -334,6 +384,10 @@ private fun CameraCard(
 
             baselineResult?.let {
                 BaselineSummary(it)
+            }
+
+            liveScanProgress?.let {
+                LiveScanSummary(it)
             }
 
             probeResult?.let {
@@ -405,6 +459,61 @@ private fun BaselineSummary(result: BaselineResult) {
 }
 
 @Composable
+private fun LiveScanSummary(progress: LiveScanProgress) {
+    val color = when (progress.alarmState) {
+        AlarmState.Baseline -> MaterialTheme.colorScheme.primary
+        AlarmState.LowAnomaly,
+        AlarmState.Elevated,
+        AlarmState.HighElevated -> MaterialTheme.colorScheme.error
+
+        AlarmState.LimitedSensitivity -> MaterialTheme.colorScheme.secondary
+        AlarmState.Invalid -> MaterialTheme.colorScheme.error
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "Quick scan: ${progress.alarmState.label}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = color,
+        )
+        if (progress.remainingMillis > 0L) {
+            Text(
+                text = "Time remaining: ${progress.remainingMillis.asSeconds()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
+        Text(
+            text = "${progress.eventsPerMinute.fixed(1)} candidate events/min, ${progress.candidateEvents} total candidates.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        Text(
+            text = "${progress.validDarkFrames}/${progress.framesAnalyzed} valid dark frames (${(progress.validFrameFraction * 100.0).fixed(0)}%).",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        Text(
+            text = if (progress.hotPixelMaskApplied) {
+                "Hot-pixel mask active for this scan."
+            } else {
+                "Hot-pixel mask not loaded; refresh baseline first for better rejection."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        progress.error?.let {
+            Text(
+                text = "Scan note: $it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
+    }
+}
+
+@Composable
 private fun ProbeSummary(result: FrameProbeResult) {
     Spacer(modifier = Modifier.height(4.dp))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -413,6 +522,13 @@ private fun ProbeSummary(result: FrameProbeResult) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
         )
+        if (result.durationMillis > 0L && result.remainingMillis > 0L) {
+            Text(
+                text = "Time remaining: ${result.remainingMillis.asSeconds()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
         result.error?.let {
             Text(
                 text = "Probe error: $it",
@@ -450,9 +566,10 @@ private fun baselineStatusText(
     baselineProgress: BaselineProgress,
     baselineResult: BaselineResult?,
     runningBaselineCameraId: String?,
+    activeResult: FrameProbeResult?,
 ): String = when {
     runningBaselineCameraId != null ->
-        "Baseline running on camera $runningBaselineCameraId: ${baselineProgress.validDarkFrames}/${baselineProgress.totalFrames} valid dark frames."
+        "Baseline running on camera $runningBaselineCameraId: ${activeResult?.remainingMillis?.asSeconds() ?: "60s"} remaining, ${baselineProgress.validDarkFrames}/${baselineProgress.totalFrames} valid dark frames."
 
     baselineResult != null ->
         "Baseline: ${baselineResult.quality.label}. ${baselineResult.message}"
@@ -461,14 +578,21 @@ private fun baselineStatusText(
         "Baseline status: not started. Normal alarm mode remains disabled until a valid dark baseline exists."
 }
 
+private fun Long.asSeconds(): String {
+    val seconds = ((this + 999L) / 1_000L).coerceAtLeast(0L)
+    return "${seconds}s"
+}
+
 private fun firstUseMessage(
     report: DeviceCameraReport?,
     baselineResult: BaselineResult?,
     runningBaselineCameraId: String?,
+    runningScanCameraId: String?,
 ): String = when {
     report == null -> "Grant camera access, then wait for the device check to list usable cameras."
     runningBaselineCameraId != null -> "Baseline is running. Keep the phone dark and still until the count finishes or tap Stop."
-    baselineResult?.enablesNormalAlarmMode == true -> "Baseline is ready. You can repeat baseline later if conditions change or use Test camera for a short frame-quality check."
+    runningScanCameraId != null -> "Quick scan is running. Keep the phone face down, dark, and still until the timer finishes."
+    baselineResult?.enablesNormalAlarmMode == true -> "Baseline is ready. Use Quick scan for a 30-second dark scan, or repeat baseline if conditions change."
     baselineResult != null -> "Baseline is not good enough yet. Try Start baseline again with the phone face down and completely still."
     else -> "Choose the best back camera, then tap Start baseline before using detector features."
 }

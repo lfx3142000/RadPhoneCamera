@@ -12,11 +12,12 @@ Last updated: 2026-06-16
 | Android project setup | Complete | Added Kotlin/Compose Android project, Gradle wrapper, local SDK build path, and debug APK build. |
 | Camera2 discovery and capability display | Complete | Enumerates cameras, reports IDs, hardware level, YUV/RAW support, manual controls, focus control, and support score. |
 | Single-camera YUV probe | Complete | Captures YUV frames, attempts manual exposure/ISO/focus lock, and reports luma mean/variance/range. |
-| First-use guidance and stop controls | Complete | Added start-here instructions, baseline collection directions, clearer button labels, and Stop control for active capture. |
-| Baseline persistence | Complete | Baseline quality, camera ID, frame counts, hot-pixel count, and timestamp are saved locally across app restarts. |
-| Dark-state and baseline workflow | In progress | Added dark-frame classifier plus guided 60-second baseline/refresh scoring; live baseline captures now generate a bounded hot-pixel map summary. |
-| Detector core logic | In progress | Added hot-pixel rejection, sparse event detection, rolling baseline, Z-score, and alarm-state helpers with unit tests. |
-| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 3 so it can install over the prior debug build. |
+| First-use guidance and stop controls | Complete | Added start-here instructions, countdown timer text, clearer button labels, stale-callback protection, and Stop control for active capture. |
+| Baseline persistence | Complete | Baseline quality, camera ID, frame counts, hot-pixel count, timestamp, and bounded compact hot-pixel mask are saved locally across app restarts. |
+| Dark-state and baseline workflow | In progress | Added dark-frame classifier plus guided 60-second baseline/refresh scoring, visible countdown, and bounded hot-pixel map generation. |
+| Detector core logic | In progress | Added hot-pixel rejection, sparse event detection, candidate events/minute, rolling baseline, Z-score, and alarm-state helpers with unit tests. |
+| Guided quick scan UX | In progress | Added a 30-second Quick scan after usable baseline, with scan countdown, valid-frame fraction, candidate events/minute, conservative status, persisted hot-pixel-mask use, and Stop control. |
+| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 4 and `RadPhoneCamera-debug.zip` refreshed for GitHub download. |
 
 Agent runs should update this section and `IMPLEMENTATION_LOG.md` after completed work.
 

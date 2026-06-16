@@ -4,6 +4,80 @@
 
 ### Summary
 
+Fixed the timed capture lifecycle and continued the next detector UI slice. The
+app now has a visible countdown, stronger Stop behavior, stale-callback
+protection, a 30-second Quick scan mode that reports candidate events per minute
+after a usable baseline, and compact hot-pixel-mask persistence for restarted
+scan use.
+
+### Build-Plan Tasks Completed
+
+- Bumped source app version to `0.1.3` / versionCode `4` so the next debug APK
+  can install over the previous build.
+- Added timer progress fields to `FrameProbeResult`.
+- Added one-second progress ticks for timed captures.
+- Removed timeout callbacks when capture finishes or is stopped.
+- Routed Stop cleanup through the camera worker handler and closed capture
+  session, image reader, and camera device.
+- Added active-capture IDs so stale callbacks from older captures cannot clear
+  newer UI state.
+- Kept baseline frame counts tied to real analyzed frames, not timer ticks.
+- Added a live scan accumulator for valid dark-frame fraction, sparse candidate
+  events, events/minute, rejected hot pixels, rejected artifacts, and conservative
+  alarm status.
+- Added Quick scan UI after a Good/Fair baseline with countdown, Stop control,
+  candidate-event rate, and hot-pixel-mask status.
+- Added compact hot-pixel-mask serialization.
+- Persisted and restored the selected camera's bounded hot-pixel mask for Quick
+  scan use after app restart.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `git diff --check`.
+- Result: passed, with only Git line-ending warnings.
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineStore.kt`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/camera/FrameProbe.kt`
+- `app/src/main/java/com/radphonecamera/app/detector/HotPixelMap.kt`
+- `app/src/main/java/com/radphonecamera/app/detector/LiveScanAccumulator.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/detector/HotPixelMapTest.kt`
+- `app/src/test/java/com/radphonecamera/app/detector/LiveScanAccumulatorTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- The persisted hot-pixel mask is bounded to keep SharedPreferences storage
+  small; very noisy devices may need a more compact binary mask format later.
+- Live scan still reports conservative status from valid-frame fraction and
+  candidate event rate; baseline event-rate/Z-score alarm evaluation is not yet
+  wired to persisted baseline statistics.
+
+### Recommended Next Tasks
+
+- Feed persisted baseline event-rate data into Z-score alarm evaluation.
+- Add a local event log for completed scans.
+- Add multi-camera weighted scan aggregation.
+
+---
+
+## 2026-06-16
+
+### Summary
+
 Continued build-plan work while preserving the Start Here first-use guidance for
 testing. The app version was bumped so the APK can install over the previous
 debug build, baseline summaries now persist locally, and guided baseline capture

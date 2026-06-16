@@ -13,6 +13,7 @@ import android.hardware.camera2.CaptureRequest
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.SystemClock
 import android.util.Range
 import com.radphonecamera.app.detector.DarkState
 import com.radphonecamera.app.detector.DarkStateClassifier
@@ -54,6 +55,9 @@ data class FrameProbeResult(
     val latestStats: FrameStats?,
     val latestDarkState: DarkState?,
     val latestSnapshot: LumaFrameSnapshot?,
+    val durationMillis: Long,
+    val elapsedMillis: Long,
+    val remainingMillis: Long,
     val error: String?,
 )
 
@@ -89,6 +93,8 @@ class FrameProbe(
         val handler = Handler(thread.looper)
         val finished = AtomicBoolean(false)
         val characteristics = cameraManager.getCameraCharacteristics(cameraId)
+        val startedAtMillis = SystemClock.elapsedRealtime()
+        val safeDurationMillis = durationMillis.coerceAtLeast(0L)
 
         var cameraDevice: CameraDevice? = null
         var session: CameraCaptureSession? = null
@@ -103,32 +109,60 @@ class FrameProbe(
             focusLocked = false,
         )
 
+        fun buildResult(error: String? = null): FrameProbeResult {
+            val elapsedMillis = (SystemClock.elapsedRealtime() - startedAtMillis).coerceAtLeast(0L)
+            val remainingMillis = (safeDurationMillis - elapsedMillis).coerceAtLeast(0L)
+            return FrameProbeResult(
+                cameraId = cameraId,
+                framesAnalyzed = frameCount,
+                manualControlAttempt = manualAttempt,
+                latestStats = latestStats,
+                latestDarkState = latestDarkState,
+                latestSnapshot = latestSnapshot,
+                durationMillis = safeDurationMillis,
+                elapsedMillis = elapsedMillis,
+                remainingMillis = remainingMillis,
+                error = error,
+            )
+        }
+
+        lateinit var timeoutRunnable: Runnable
+        lateinit var tickRunnable: Runnable
+
         fun finish(error: String? = null) {
             if (!finished.compareAndSet(false, true)) return
+            runCatching { handler.removeCallbacks(timeoutRunnable) }
+            runCatching { handler.removeCallbacks(tickRunnable) }
             runCatching { session?.stopRepeating() }
             runCatching { session?.abortCaptures() }
             runCatching { session?.close() }
             runCatching { imageReader?.close() }
             runCatching { cameraDevice?.close() }
             thread.quitSafely()
-            listener.onCompleted(
-                FrameProbeResult(
-                    cameraId = cameraId,
-                    framesAnalyzed = frameCount,
-                    manualControlAttempt = manualAttempt,
-                    latestStats = latestStats,
-                    latestDarkState = latestDarkState,
-                    latestSnapshot = latestSnapshot,
-                    error = error,
-                ),
-            )
+            listener.onCompleted(buildResult(error))
         }
+
+        timeoutRunnable = Runnable { finish() }
+        tickRunnable = object : Runnable {
+            override fun run() {
+                if (finished.get()) return
+                listener.onProgress(buildResult())
+                handler.postDelayed(this, TIMER_TICK_MILLIS)
+            }
+        }
+
+        handler.post(tickRunnable)
+        handler.postDelayed(timeoutRunnable, safeDurationMillis)
 
         try {
             cameraManager.openCamera(
                 cameraId,
                 object : CameraDevice.StateCallback() {
                     override fun onOpened(camera: CameraDevice) {
+                        if (finished.get()) {
+                            camera.close()
+                            return
+                        }
                         cameraDevice = camera
                         val size = chooseYuvSize(characteristics)
                         if (size == null) {
@@ -145,6 +179,10 @@ class FrameProbe(
                         imageReader?.setOnImageAvailableListener(
                             { reader ->
                                 val image = reader.acquireLatestImage() ?: return@setOnImageAvailableListener
+                                if (finished.get()) {
+                                    image.close()
+                                    return@setOnImageAvailableListener
+                                }
                                 try {
                                     val stats = FrameStatsCalculator.fromImage(image)
                                     val darkState = DarkStateClassifier.classify(stats)
@@ -154,15 +192,7 @@ class FrameProbe(
                                     latestSnapshot = snapshot
                                     frameCount += 1
                                     listener.onProgress(
-                                        FrameProbeResult(
-                                            cameraId = cameraId,
-                                            framesAnalyzed = frameCount,
-                                            manualControlAttempt = manualAttempt,
-                                            latestStats = stats,
-                                            latestDarkState = darkState,
-                                            latestSnapshot = snapshot,
-                                            error = null,
-                                        ),
+                                        buildResult(),
                                     )
                                 } finally {
                                     image.close()
@@ -186,13 +216,16 @@ class FrameProbe(
                             listOf(surface),
                             object : CameraCaptureSession.StateCallback() {
                                 override fun onConfigured(configuredSession: CameraCaptureSession) {
+                                    if (finished.get()) {
+                                        configuredSession.close()
+                                        return
+                                    }
                                     session = configuredSession
                                     configuredSession.setRepeatingRequest(
                                         request.build(),
                                         null,
                                         handler,
                                     )
-                                    handler.postDelayed({ finish() }, durationMillis)
                                 }
 
                                 override fun onConfigureFailed(configuredSession: CameraCaptureSession) {
@@ -204,10 +237,18 @@ class FrameProbe(
                     }
 
                     override fun onDisconnected(camera: CameraDevice) {
+                        if (finished.get()) {
+                            camera.close()
+                            return
+                        }
                         finish("Camera disconnected.")
                     }
 
                     override fun onError(camera: CameraDevice, error: Int) {
+                        if (finished.get()) {
+                            camera.close()
+                            return
+                        }
                         finish("Camera error code $error.")
                     }
                 },
@@ -220,7 +261,9 @@ class FrameProbe(
         }
 
         return FrameProbeSession {
-            handler.post { finish("Stopped by user.") }
+            if (!handler.post { finish("Stopped by user.") }) {
+                finish("Stopped by user.")
+            }
         }
     }
 
@@ -302,6 +345,9 @@ class FrameProbe(
             latestStats = null,
             latestDarkState = null,
             latestSnapshot = null,
+            durationMillis = 0L,
+            elapsedMillis = 0L,
+            remainingMillis = 0L,
             error = error,
         )
 
@@ -322,5 +368,9 @@ class FrameProbe(
             height = height,
             luma = bytes,
         )
+    }
+
+    private companion object {
+        const val TIMER_TICK_MILLIS = 1_000L
     }
 }

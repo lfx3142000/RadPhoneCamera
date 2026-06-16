@@ -14,12 +14,46 @@ data class HotPixelMap(
 
     fun isHot(x: Int, y: Int): Boolean = hotPixels.contains(PixelCoordinate(x, y))
 
+    fun toPackedString(maxPixels: Int = Int.MAX_VALUE): String =
+        hotPixels
+            .take(maxPixels.coerceAtLeast(0))
+            .joinToString(separator = ";") { coordinate ->
+                "${coordinate.x},${coordinate.y}"
+            }
+
     companion object {
         fun empty(width: Int, height: Int): HotPixelMap = HotPixelMap(
             width = width,
             height = height,
             hotPixels = emptySet(),
         )
+
+        fun fromPackedString(
+            width: Int,
+            height: Int,
+            packedHotPixels: String,
+        ): HotPixelMap {
+            if (width <= 0 || height <= 0 || packedHotPixels.isBlank()) {
+                return empty(width, height)
+            }
+
+            val hot = packedHotPixels
+                .split(";")
+                .mapNotNull { token ->
+                    val parts = token.split(",")
+                    if (parts.size != 2) return@mapNotNull null
+                    val x = parts[0].toIntOrNull() ?: return@mapNotNull null
+                    val y = parts[1].toIntOrNull() ?: return@mapNotNull null
+                    if (x !in 0 until width || y !in 0 until height) {
+                        null
+                    } else {
+                        PixelCoordinate(x, y)
+                    }
+                }
+                .toSet()
+
+            return HotPixelMap(width, height, hot)
+        }
 
         fun fromDarkFrames(
             frames: List<ByteArray>,
@@ -59,4 +93,3 @@ data class HotPixelMap(
         }
     }
 }
-
