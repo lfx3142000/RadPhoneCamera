@@ -1,5 +1,19 @@
 # Build Plan: Phone-Only Radiation Anomaly Detector App
 
+## Progress Status
+
+Last updated: 2026-06-16
+
+| Area | Status | Notes |
+| ---- | ------ | ----- |
+| Repository agent workflow | Complete | Added `AGENTS.md` with coding-first autonomous run rules. |
+| Implementation log | Complete | Added `IMPLEMENTATION_LOG.md` for run summaries, tests, blockers, and next tasks. |
+| Android implementation | Not started | Next recommended task is Phase 0 project setup and Camera2 discovery. |
+
+Agent runs should update this section and `IMPLEMENTATION_LOG.md` after completed work.
+
+---
+
 ## 1. Product Summary
 
 Build an Android-first, software-only radiation anomaly detection app that uses smartphone camera sensors to detect gamma/X-ray-like events above the phone’s learned dark-frame baseline.
