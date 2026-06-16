@@ -44,5 +44,14 @@ with the narrowest practical command scope.
 
 ## Current Status
 
-Android project setup has not started yet, so no APK can be built until Phase 0
-creates the Gradle project.
+Android project setup is complete and the debug APK builds successfully.
+
+- Current debug APK path:
+  `C:\Users\fhidi\Documents\Rad phone camera\app\build\outputs\apk\debug\app-debug.apk`
+- Build command used:
+  `.\gradlew.bat test assembleDebug`
+- Local SDK path:
+  `.android-sdk`
+
+Release APKs are still not configured because no signing configuration has been
+provided.

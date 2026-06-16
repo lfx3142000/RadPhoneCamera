@@ -4,6 +4,72 @@
 
 ### Summary
 
+Built the first working Android debug app and APK. The app now has Camera2
+device discovery, camera capability scoring, a Compose debug UI, a single-camera
+YUV probe, frame statistics, dark-frame baseline scoring, and unit-tested
+detector foundations.
+
+### Build-Plan Tasks Completed
+
+- Created Android Kotlin project with Jetpack Compose.
+- Added Gradle wrapper and local Android SDK build setup.
+- Added camera permission only; no GPS, microphone, cloud, broad file access, or
+  photo-saving permission.
+- Added Camera2 discovery and camera capability display.
+- Added device qualification scoring for YUV, RAW, manual exposure, manual ISO,
+  focus control, hardware level, and physical camera IDs.
+- Added single-camera YUV probe with manual exposure/ISO/focus attempts.
+- Added frame brightness mean, variance, min, and max metrics.
+- Added dark-state classifier.
+- Added 60-second baseline/refresh workflow and Good/Fair/Poor/Invalid baseline
+  scoring.
+- Added hot-pixel map, sparse event detector, rolling baseline, Z-score, and
+  alarm-state helper logic.
+- Added first debug APK build.
+- Added README.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Unit tests: 8 Kotlin test files covering frame stats, dark-state scoring,
+  device qualification, baseline quality, hot-pixel mapping, sparse event
+  detection, rolling baseline, and alarm evaluation.
+- Debug APK generated:
+  `C:\Users\fhidi\Documents\Rad phone camera\app\build\outputs\apk\debug\app-debug.apk`
+
+### Files Changed
+
+- Android Gradle project files and wrapper.
+- `app/src/main/...` Android app, Camera2, baseline, detector, and Compose UI
+  code.
+- `app/src/test/...` detector and baseline unit tests.
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+
+### Blockers
+
+- Live camera behavior still needs testing on an Android phone.
+- Hot-pixel map generation exists as pure logic but is not yet wired into live
+  baseline captures.
+- Release APK signing is not configured.
+
+### Recommended Next Tasks
+
+- Install the debug APK on an Android phone and verify camera permission,
+  discovery, YUV probe, and baseline workflow.
+- Wire live baseline captures into hot-pixel map generation.
+- Add persistent baseline storage with DataStore or Room.
+- Add event log storage and CSV export.
+
+---
+
+## 2026-06-16
+
+### Summary
+
 Added standing delivery authorization so future agents build, commit, push, and
 provide debug APK files as part of normal implementation runs.
 
