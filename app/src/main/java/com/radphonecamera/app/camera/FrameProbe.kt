@@ -40,6 +40,14 @@ interface FrameProbeListener {
     fun onCompleted(result: FrameProbeResult)
 }
 
+class FrameProbeSession internal constructor(
+    private val stopAction: () -> Unit,
+) {
+    fun stop() {
+        stopAction()
+    }
+}
+
 class FrameProbe(
     private val context: Context,
 ) {
@@ -49,10 +57,10 @@ class FrameProbe(
         cameraId: String,
         durationMillis: Long = 3_000L,
         listener: FrameProbeListener,
-    ) {
+    ): FrameProbeSession {
         if (context.checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             listener.onCompleted(emptyResult(cameraId, "Camera permission has not been granted."))
-            return
+            return FrameProbeSession {}
         }
 
         val thread = HandlerThread("FrameProbe-$cameraId").apply { start() }
@@ -183,6 +191,10 @@ class FrameProbe(
         } catch (exception: RuntimeException) {
             finish("Camera probe failed: ${exception.message}")
         }
+
+        return FrameProbeSession {
+            handler.post { finish("Stopped by user.") }
+        }
     }
 
     private fun chooseYuvSize(characteristics: CameraCharacteristics): FrameSize? {
@@ -265,4 +277,3 @@ class FrameProbe(
             error = error,
         )
 }
-

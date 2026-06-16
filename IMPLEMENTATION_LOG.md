@@ -4,6 +4,55 @@
 
 ### Summary
 
+Improved the first-run user experience after device feedback. The app now tells
+the user what to do first, explains how to collect a dark baseline, uses clearer
+button labels, and provides a Stop button for active camera tests or baseline
+collection.
+
+### Build-Plan Tasks Completed
+
+- Added a Start Here guidance panel.
+- Added baseline collection directions: put the phone face down or in a dark
+  pocket, keep it still for 60 seconds, and use Stop to cancel.
+- Renamed user-facing actions from debug-oriented labels to clearer actions:
+  Test camera and Start baseline.
+- Added a cancellable `FrameProbeSession`.
+- Added Stop behavior for YUV probe and 60-second baseline capture.
+- Refreshed the debug APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/src/main/java/com/radphonecamera/app/camera/FrameProbe.kt`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Live detector loop and persistent baseline storage are still not wired.
+
+### Recommended Next Tasks
+
+- Add persistence for baseline results and selected camera.
+- Wire live baseline frames into hot-pixel map generation.
+- Add a clearer post-baseline next step for starting the detector loop.
+
+---
+
+## 2026-06-16
+
+### Summary
+
 Built the first working Android debug app and APK. The app now has Camera2
 device discovery, camera capability scoring, a Compose debug UI, a single-camera
 YUV probe, frame statistics, dark-frame baseline scoring, and unit-tested

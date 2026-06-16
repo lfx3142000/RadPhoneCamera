@@ -27,6 +27,8 @@ trained radiation specialist.
 - Single-camera YUV probe.
 - Manual exposure, ISO, focus, and flash-off capture request attempts.
 - Luma mean, variance, min/max frame metrics.
+- First-use guidance that tells the user to start with baseline collection.
+- Stop button for active camera tests and baseline collection.
 - Dark-frame quality classification.
 - Initial 60-second baseline/refresh workflow with Good/Fair/Poor/Invalid
   scoring.
@@ -55,4 +57,3 @@ app/build/outputs/apk/debug/app-debug.apk
 
 Release APKs are not configured yet because signing credentials have not been
 provided.
-

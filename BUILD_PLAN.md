@@ -12,7 +12,8 @@ Last updated: 2026-06-16
 | Android project setup | Complete | Added Kotlin/Compose Android project, Gradle wrapper, local SDK build path, and debug APK build. |
 | Camera2 discovery and capability display | Complete | Enumerates cameras, reports IDs, hardware level, YUV/RAW support, manual controls, focus control, and support score. |
 | Single-camera YUV probe | Complete | Captures YUV frames, attempts manual exposure/ISO/focus lock, and reports luma mean/variance/range. |
-| Dark-state and baseline workflow | In progress | Added dark-frame classifier plus 60-second baseline/refresh scoring; hot-pixel map is implemented as pure logic but not yet generated from live baseline captures. |
+| First-use guidance and stop controls | Complete | Added start-here instructions, baseline collection directions, clearer button labels, and Stop control for active capture. |
+| Dark-state and baseline workflow | In progress | Added dark-frame classifier plus guided 60-second baseline/refresh scoring; hot-pixel map is implemented as pure logic but not yet generated from live baseline captures. |
 | Detector core logic | In progress | Added hot-pixel rejection, sparse event detection, rolling baseline, Z-score, and alarm-state helpers with unit tests. |
 | APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`. |
 

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -57,6 +58,7 @@ fun RadPhoneCameraApp(
     onRequestCameraPermission: () -> Unit,
     onRefresh: () -> Unit,
     onRunBaseline: (String) -> Unit,
+    onStopCapture: () -> Unit,
     onRunProbe: (String) -> Unit,
 ) {
     MaterialTheme(colorScheme = AppColors) {
@@ -82,6 +84,14 @@ fun RadPhoneCameraApp(
                 }
 
                 item {
+                    FirstUsePanel(
+                        report = report,
+                        baselineResult = baselineResult,
+                        runningBaselineCameraId = runningBaselineCameraId,
+                    )
+                }
+
+                item {
                     StatusPanel(
                         report = report,
                         loadingReport = loadingReport,
@@ -103,6 +113,7 @@ fun RadPhoneCameraApp(
                             probeResult = probeResult?.takeIf { it.cameraId == camera.cameraId },
                             baselineResult = baselineResult,
                             onRunBaseline = { onRunBaseline(camera.cameraId) },
+                            onStopCapture = onStopCapture,
                             onRunProbe = { onRunProbe(camera.cameraId) },
                         )
                     }
@@ -147,6 +158,35 @@ private fun PermissionPanel(onRequestCameraPermission: () -> Unit) {
             Button(onClick = onRequestCameraPermission) {
                 Text("Grant camera access")
             }
+        }
+    }
+}
+
+@Composable
+private fun FirstUsePanel(
+    report: DeviceCameraReport?,
+    baselineResult: BaselineResult?,
+    runningBaselineCameraId: String?,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Start here",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = firstUseMessage(report, baselineResult, runningBaselineCameraId),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Text(
+                text = "For the baseline: put the phone face down on a flat surface or inside a dark pocket. Leave it still for 60 seconds. Use Stop if you need to cancel.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
         }
     }
 }
@@ -211,6 +251,7 @@ private fun CameraCard(
     probeResult: FrameProbeResult?,
     baselineResult: BaselineResult?,
     onRunBaseline: () -> Unit,
+    onStopCapture: () -> Unit,
     onRunProbe: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -261,18 +302,34 @@ private fun CameraCard(
                 )
             }
 
-            Button(
-                onClick = onRunProbe,
-                enabled = camera.supportsYuv && !isProbeRunning && !anyBaselineRunning,
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(if (isProbeRunning) "Probing YUV frames" else "Run YUV probe")
+                Button(
+                    onClick = onRunProbe,
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                    enabled = camera.supportsYuv && !isProbeRunning && !anyBaselineRunning,
+                ) {
+                    Text(if (isProbeRunning) "Probing" else "Test camera")
+                }
+
+                Button(
+                    onClick = onRunBaseline,
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                    enabled = camera.supportsYuv && !isProbeRunning && !anyBaselineRunning,
+                ) {
+                    Text(if (isBaselineRunning) "Collecting" else "Start baseline")
+                }
             }
 
-            Button(
-                onClick = onRunBaseline,
-                enabled = camera.supportsYuv && !isProbeRunning && !anyBaselineRunning,
-            ) {
-                Text(if (isBaselineRunning) "Collecting baseline" else "Refresh baseline")
+            if (isProbeRunning || isBaselineRunning) {
+                Button(
+                    onClick = onStopCapture,
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
+                ) {
+                    Text("Stop")
+                }
             }
 
             baselineResult?.let {
@@ -395,4 +452,16 @@ private fun baselineStatusText(
 
     else ->
         "Baseline status: not started. Normal alarm mode remains disabled until a valid dark baseline exists."
+}
+
+private fun firstUseMessage(
+    report: DeviceCameraReport?,
+    baselineResult: BaselineResult?,
+    runningBaselineCameraId: String?,
+): String = when {
+    report == null -> "Grant camera access, then wait for the device check to list usable cameras."
+    runningBaselineCameraId != null -> "Baseline is running. Keep the phone dark and still until the count finishes or tap Stop."
+    baselineResult?.enablesNormalAlarmMode == true -> "Baseline is ready. You can repeat baseline later if conditions change or use Test camera for a short frame-quality check."
+    baselineResult != null -> "Baseline is not good enough yet. Try Start baseline again with the phone face down and completely still."
+    else -> "Choose the best back camera, then tap Start baseline before using detector features."
 }

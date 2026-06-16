@@ -21,6 +21,7 @@ import com.radphonecamera.app.camera.DeviceCameraReport
 import com.radphonecamera.app.camera.FrameProbe
 import com.radphonecamera.app.camera.FrameProbeListener
 import com.radphonecamera.app.camera.FrameProbeResult
+import com.radphonecamera.app.camera.FrameProbeSession
 import com.radphonecamera.app.ui.RadPhoneCameraApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
             var runningBaselineCameraId by remember { mutableStateOf<String?>(null) }
             var baselineProgress by remember { mutableStateOf(BaselineProgress()) }
             var baselineResult by remember { mutableStateOf<BaselineResult?>(null) }
+            var activeProbeSession by remember { mutableStateOf<FrameProbeSession?>(null) }
             val scope = rememberCoroutineScope()
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
@@ -63,11 +65,13 @@ class MainActivity : ComponentActivity() {
 
             fun runBaseline(cameraId: String) {
                 var progress = BaselineProgress()
+                activeProbeSession?.stop()
                 runningBaselineCameraId = cameraId
+                runningProbeCameraId = null
                 baselineProgress = progress
                 baselineResult = null
 
-                FrameProbe(this@MainActivity).runSingleCameraProbe(
+                activeProbeSession = FrameProbe(this@MainActivity).runSingleCameraProbe(
                     cameraId = cameraId,
                     durationMillis = 60_000L,
                     listener = object : FrameProbeListener {
@@ -89,10 +93,18 @@ class MainActivity : ComponentActivity() {
                                 baselineResult = finalResult
                                 probeResult = result
                                 runningBaselineCameraId = null
+                                activeProbeSession = null
                             }
                         }
                     },
                 )
+            }
+
+            fun stopActiveCapture() {
+                activeProbeSession?.stop()
+                activeProbeSession = null
+                runningProbeCameraId = null
+                runningBaselineCameraId = null
             }
 
             LaunchedEffect(cameraPermissionGranted) {
@@ -114,10 +126,13 @@ class MainActivity : ComponentActivity() {
                 },
                 onRefresh = ::refreshReport,
                 onRunBaseline = ::runBaseline,
+                onStopCapture = ::stopActiveCapture,
                 onRunProbe = { cameraId ->
+                    activeProbeSession?.stop()
                     runningProbeCameraId = cameraId
+                    runningBaselineCameraId = null
                     probeResult = null
-                    FrameProbe(this@MainActivity).runSingleCameraProbe(
+                    activeProbeSession = FrameProbe(this@MainActivity).runSingleCameraProbe(
                         cameraId = cameraId,
                         listener = object : FrameProbeListener {
                             override fun onProgress(result: FrameProbeResult) {
@@ -128,6 +143,7 @@ class MainActivity : ComponentActivity() {
                                 runOnUiThread {
                                     probeResult = result
                                     runningProbeCameraId = null
+                                    activeProbeSession = null
                                 }
                             }
                         },
