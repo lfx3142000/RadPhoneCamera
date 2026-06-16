@@ -27,6 +27,10 @@ class BaselineStore(
             cameraId = prefs.getString(KEY_CAMERA_ID, null),
             hotPixelCount = prefs.getInt(KEY_HOT_PIXEL_COUNT, 0),
             collectedAtMillis = prefs.getLong(KEY_COLLECTED_AT, 0L),
+            baselineEventFrameCount = prefs.getInt(KEY_BASELINE_EVENT_FRAME_COUNT, 0),
+            baselineCandidateEvents = prefs.getInt(KEY_BASELINE_CANDIDATE_EVENTS, 0),
+            baselineMeanEventsPerFrame = prefs.getDouble(KEY_BASELINE_EVENT_MEAN),
+            baselineVarianceEventsPerFrame = prefs.getDouble(KEY_BASELINE_EVENT_VARIANCE),
         )
     }
 
@@ -58,6 +62,10 @@ class BaselineStore(
             .putInt(KEY_INVALID_FRAMES, result.progress.invalidFrames)
             .putInt(KEY_HOT_PIXEL_COUNT, result.hotPixelCount)
             .putLong(KEY_COLLECTED_AT, result.collectedAtMillis)
+            .putInt(KEY_BASELINE_EVENT_FRAME_COUNT, result.baselineEventFrameCount)
+            .putInt(KEY_BASELINE_CANDIDATE_EVENTS, result.baselineCandidateEvents)
+            .putDouble(KEY_BASELINE_EVENT_MEAN, result.baselineMeanEventsPerFrame)
+            .putDouble(KEY_BASELINE_EVENT_VARIANCE, result.baselineVarianceEventsPerFrame)
             .writeHotPixelMap(result.cameraId, hotPixelMap)
             .apply()
     }
@@ -81,6 +89,17 @@ class BaselineStore(
         return this
     }
 
+    private fun android.content.SharedPreferences.getDouble(key: String): Double =
+        java.lang.Double.longBitsToDouble(
+            getLong(key, java.lang.Double.doubleToRawLongBits(0.0)),
+        )
+
+    private fun android.content.SharedPreferences.Editor.putDouble(
+        key: String,
+        value: Double,
+    ): android.content.SharedPreferences.Editor =
+        putLong(key, java.lang.Double.doubleToRawLongBits(value))
+
     private fun BaselineQuality.defaultMessage(): String = when (this) {
         BaselineQuality.Good -> "Enough dark, stable frames for normal detector startup."
         BaselineQuality.Fair -> "Usable baseline, but another face-down refresh is recommended."
@@ -103,6 +122,10 @@ class BaselineStore(
         private const val KEY_HOT_PIXEL_WIDTH = "hot_pixel_width"
         private const val KEY_HOT_PIXEL_HEIGHT = "hot_pixel_height"
         private const val KEY_HOT_PIXEL_PACKED = "hot_pixel_packed"
+        private const val KEY_BASELINE_EVENT_FRAME_COUNT = "baseline_event_frame_count"
+        private const val KEY_BASELINE_CANDIDATE_EVENTS = "baseline_candidate_events"
+        private const val KEY_BASELINE_EVENT_MEAN = "baseline_event_mean"
+        private const val KEY_BASELINE_EVENT_VARIANCE = "baseline_event_variance"
         private const val MAX_STORED_HOT_PIXELS = 5_000
     }
 }

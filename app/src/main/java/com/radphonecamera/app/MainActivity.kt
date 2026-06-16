@@ -24,6 +24,7 @@ import com.radphonecamera.app.camera.FrameProbeListener
 import com.radphonecamera.app.camera.FrameProbeResult
 import com.radphonecamera.app.camera.FrameProbeSession
 import com.radphonecamera.app.camera.LumaFrameSnapshot
+import com.radphonecamera.app.detector.BaselineEventStats
 import com.radphonecamera.app.detector.DarkQuality
 import com.radphonecamera.app.detector.HotPixelMap
 import com.radphonecamera.app.detector.LiveScanAccumulator
@@ -144,6 +145,10 @@ class MainActivity : ComponentActivity() {
                             }
 
                             val hotPixelMap = baselineSnapshots.hotPixelMap()
+                            val baselineEventStats = BaselineEventStats.fromSnapshots(
+                                snapshots = baselineSnapshots,
+                                hotPixelMap = hotPixelMap,
+                            )
                             val finalResult = BaselineQualityScorer.score(
                                 progress = progress,
                                 error = result.error,
@@ -151,6 +156,10 @@ class MainActivity : ComponentActivity() {
                                 cameraId = cameraId,
                                 hotPixelCount = hotPixelMap?.size ?: 0,
                                 collectedAtMillis = System.currentTimeMillis(),
+                                baselineEventFrameCount = baselineEventStats.frameCount,
+                                baselineCandidateEvents = baselineEventStats.totalCandidateEvents,
+                                baselineMeanEventsPerFrame = baselineEventStats.meanEventsPerFrame,
+                                baselineVarianceEventsPerFrame = baselineEventStats.varianceEventsPerFrame,
                             )
                             runOnUiThread {
                                 if (captureId == activeCaptureId) {
@@ -175,6 +184,7 @@ class MainActivity : ComponentActivity() {
                 val accumulator = LiveScanAccumulator(
                     cameraId = cameraId,
                     hotPixelMap = hotPixelMap,
+                    baselineModel = baselineResult?.baselineModel,
                 )
                 var lastRecordedFrameCount = 0
                 val previousSession = activeProbeSession

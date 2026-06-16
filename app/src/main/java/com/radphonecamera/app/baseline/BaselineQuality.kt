@@ -1,6 +1,7 @@
 package com.radphonecamera.app.baseline
 
 import com.radphonecamera.app.detector.DarkQuality
+import com.radphonecamera.app.detector.BaselineModel
 
 enum class BaselineQuality(val label: String) {
     Good("Good"),
@@ -50,9 +51,20 @@ data class BaselineResult(
     val cameraId: String? = null,
     val hotPixelCount: Int = 0,
     val collectedAtMillis: Long = 0L,
+    val baselineEventFrameCount: Int = 0,
+    val baselineCandidateEvents: Int = 0,
+    val baselineMeanEventsPerFrame: Double = 0.0,
+    val baselineVarianceEventsPerFrame: Double = 0.0,
 ) {
     val enablesNormalAlarmMode: Boolean =
         quality == BaselineQuality.Good || quality == BaselineQuality.Fair
+
+    val baselineModel: BaselineModel?
+        get() = BaselineModel(
+            frameCount = baselineEventFrameCount,
+            meanEventsPerFrame = baselineMeanEventsPerFrame,
+            varianceEventsPerFrame = baselineVarianceEventsPerFrame,
+        ).takeIf { it.hasEnoughData }
 }
 
 object BaselineQualityScorer {

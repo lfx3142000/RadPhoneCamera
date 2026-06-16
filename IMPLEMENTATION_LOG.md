@@ -4,6 +4,69 @@
 
 ### Summary
 
+Continued the detector core after the timer/Stop and Quick scan batch. Baseline
+captures now persist compact event-rate statistics, and Quick scan evaluates
+candidate counts against those baseline stats to show a conservative Z-score
+when enough valid dark frames are available.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.1.4` / versionCode `5` for update-over-install
+  after the second APK refresh.
+- Added `BaselineEventStats` to calculate candidate-event baseline statistics
+  from dark-frame snapshots after hot-pixel masking.
+- Persisted baseline event frame count, total candidate events, mean events per
+  frame, and variance events per frame.
+- Restored baseline event stats from local storage across app restarts.
+- Fed the restored baseline model into Quick scan.
+- Added Quick scan baseline Z-score output when at least 10 valid scan frames
+  and enough baseline frames are available.
+- Added unit tests for baseline event-stat calculation and Z-score-driven scan
+  alarm status.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineQuality.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineStore.kt`
+- `app/src/main/java/com/radphonecamera/app/detector/BaselineEventStats.kt`
+- `app/src/main/java/com/radphonecamera/app/detector/LiveScanAccumulator.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/detector/BaselineEventStatsTest.kt`
+- `app/src/test/java/com/radphonecamera/app/detector/LiveScanAccumulatorTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Quick scan Z-score is based on sampled baseline frames, not yet on a
+  full-duration rolling baseline with time-windowed rates.
+- Scan results are not yet saved to a local event log.
+
+### Recommended Next Tasks
+
+- Add a local event log for completed scans.
+- Add multi-camera weighted scan aggregation.
+- Add baseline stale/reminder logic in UI.
+
+---
+
+## 2026-06-16
+
+### Summary
+
 Fixed the timed capture lifecycle and continued the next detector UI slice. The
 app now has a visible countdown, stronger Stop behavior, stale-callback
 protection, a 30-second Quick scan mode that reports candidate events per minute

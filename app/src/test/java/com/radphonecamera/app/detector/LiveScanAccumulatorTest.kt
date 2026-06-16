@@ -86,4 +86,36 @@ class LiveScanAccumulatorTest {
         assertEquals(1, progress.rejectedHotPixels)
         assertTrue(progress.hotPixelMaskApplied)
     }
+
+    @Test
+    fun baselineModelCanRaiseQuickScanAlarmState() {
+        val luma = ByteArray(25)
+        luma[12] = 120
+        val baseline = (1..30).fold(BaselineModel()) { model, _ ->
+            model.update(0)
+        }
+        val accumulator = LiveScanAccumulator(
+            cameraId = "0",
+            baselineModel = baseline,
+        )
+
+        repeat(10) {
+            accumulator.recordFrame(
+                LiveScanFrameInput(
+                    width = 5,
+                    height = 5,
+                    luma = luma,
+                    darkQuality = DarkQuality.Good,
+                ),
+            )
+        }
+        val progress = accumulator.snapshot(
+            durationMillis = 30_000L,
+            elapsedMillis = 30_000L,
+            remainingMillis = 0L,
+        )
+
+        assertEquals(AlarmState.Elevated, progress.alarmState)
+        assertTrue(progress.baselineZScore >= 5.0)
+    }
 }

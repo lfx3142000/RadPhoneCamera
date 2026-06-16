@@ -455,6 +455,13 @@ private fun BaselineSummary(result: BaselineResult) {
                 color = MaterialTheme.colorScheme.secondary,
             )
         }
+        if (result.baselineEventFrameCount > 0) {
+            Text(
+                text = "Baseline candidates: ${result.baselineCandidateEvents} across ${result.baselineEventFrameCount} sampled frames.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
     }
 }
 
@@ -494,6 +501,13 @@ private fun LiveScanSummary(progress: LiveScanProgress) {
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary,
         )
+        if (progress.baselineFrameCount > 0) {
+            Text(
+                text = "Baseline Z: ${progress.baselineZScore.fixed(1)} from ${progress.baselineFrameCount} baseline frames.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
         Text(
             text = if (progress.hotPixelMaskApplied) {
                 "Hot-pixel mask active for this scan."

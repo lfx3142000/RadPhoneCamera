@@ -20,6 +20,8 @@ data class LiveScanProgress(
     val latestDarkQuality: DarkQuality?,
     val alarmState: AlarmState,
     val hotPixelMaskApplied: Boolean,
+    val baselineFrameCount: Int,
+    val baselineZScore: Double,
     val error: String? = null,
 ) {
     val validFrameFraction: Double =
@@ -36,6 +38,7 @@ data class LiveScanProgress(
 class LiveScanAccumulator(
     private val cameraId: String,
     private val hotPixelMap: HotPixelMap? = null,
+    private val baselineModel: BaselineModel? = null,
     private val detector: SparseEventDetector = SparseEventDetector(),
 ) {
     private var framesAnalyzed = 0
@@ -77,6 +80,14 @@ class LiveScanAccumulator(
         remainingMillis: Long,
         error: String? = null,
     ): LiveScanProgress {
+        val baselineZScore = if (validDarkFrames >= MIN_Z_SCORE_FRAMES) {
+            baselineModel?.zScore(
+                observedEvents = candidateEvents,
+                observedFrames = validDarkFrames,
+            ) ?: 0.0
+        } else {
+            0.0
+        }
         val aggregateDarkQuality = when {
             framesAnalyzed == 0 -> DarkQuality.Poor
             validFrameFraction < 0.25 -> DarkQuality.Invalid
@@ -85,6 +96,7 @@ class LiveScanAccumulator(
         }
         val alarmState = AlarmEngine.evaluate(
             AlarmInput(
+                z30s = baselineZScore,
                 darkQuality = aggregateDarkQuality,
                 validFrameFraction = validFrameFraction,
             ),
@@ -103,10 +115,16 @@ class LiveScanAccumulator(
             latestDarkQuality = latestDarkQuality,
             alarmState = alarmState,
             hotPixelMaskApplied = hotPixelMaskApplied,
+            baselineFrameCount = baselineModel?.frameCount ?: 0,
+            baselineZScore = baselineZScore,
             error = error,
         )
     }
 
     private val validFrameFraction: Double
         get() = if (framesAnalyzed == 0) 0.0 else validDarkFrames.toDouble() / framesAnalyzed
+
+    private companion object {
+        const val MIN_Z_SCORE_FRAMES = 10
+    }
 }
