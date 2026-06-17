@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.1.5` / versionCode `6`.
+- Current debug version: `0.1.6` / versionCode `7`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -44,6 +44,8 @@ trained radiation specialist.
 - Quick scan mode after a usable baseline, showing candidate events/minute,
   valid dark-frame fraction, scan status, baseline Z-score when available, and
   hot-pixel-mask status.
+- Local rolling scan log for completed quick scans. It stores summary results
+  only, not images.
 - Hot-pixel map generation from dark frames.
 - Sparse bright-cluster event detection.
 - Persisted baseline candidate-event statistics for conservative scan

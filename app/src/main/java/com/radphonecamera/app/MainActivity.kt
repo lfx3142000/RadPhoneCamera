@@ -24,6 +24,9 @@ import com.radphonecamera.app.camera.FrameProbeListener
 import com.radphonecamera.app.camera.FrameProbeResult
 import com.radphonecamera.app.camera.FrameProbeSession
 import com.radphonecamera.app.camera.LumaFrameSnapshot
+import com.radphonecamera.app.data.ScanEvent
+import com.radphonecamera.app.data.ScanEventLogStore
+import com.radphonecamera.app.data.toScanEvent
 import com.radphonecamera.app.detector.BaselineEventStats
 import com.radphonecamera.app.detector.DarkQuality
 import com.radphonecamera.app.detector.HotPixelMap
@@ -50,6 +53,7 @@ class MainActivity : ComponentActivity() {
             var runningScanCameraId by remember { mutableStateOf<String?>(null) }
             var baselineProgress by remember { mutableStateOf(BaselineProgress()) }
             val baselineStore = remember { BaselineStore(this@MainActivity) }
+            val scanEventLogStore = remember { ScanEventLogStore(this@MainActivity) }
             val savedBaselineResult = remember { baselineStore.load() }
             val savedHotPixelMap = remember {
                 savedBaselineResult?.cameraId?.let { cameraId ->
@@ -58,6 +62,7 @@ class MainActivity : ComponentActivity() {
             }
             var baselineResult by remember { mutableStateOf(savedBaselineResult) }
             var liveScanProgress by remember { mutableStateOf<LiveScanProgress?>(null) }
+            var scanEvents by remember { mutableStateOf<List<ScanEvent>>(scanEventLogStore.load()) }
             var activeHotPixelMap by remember { mutableStateOf(savedHotPixelMap) }
             var activeHotPixelCameraId by remember {
                 mutableStateOf(savedHotPixelMap?.let { savedBaselineResult?.cameraId })
@@ -245,6 +250,12 @@ class MainActivity : ComponentActivity() {
                             )
                             runOnUiThread {
                                 if (captureId == activeCaptureId) {
+                                    if (result.error == null && progress.framesAnalyzed > 0) {
+                                        scanEventLogStore.append(
+                                            progress.toScanEvent(System.currentTimeMillis()),
+                                        )
+                                        scanEvents = scanEventLogStore.load()
+                                    }
                                     liveScanProgress = progress
                                     probeResult = result
                                     runningScanCameraId = null
@@ -301,6 +312,7 @@ class MainActivity : ComponentActivity() {
                 baselineProgress = baselineProgress,
                 baselineResult = baselineResult,
                 liveScanProgress = liveScanProgress,
+                scanEvents = scanEvents,
                 onRequestCameraPermission = {
                     permissionLauncher.launch(Manifest.permission.CAMERA)
                 },

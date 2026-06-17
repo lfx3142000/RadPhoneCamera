@@ -31,6 +31,7 @@ import com.radphonecamera.app.baseline.BaselineResult
 import com.radphonecamera.app.camera.CameraCapability
 import com.radphonecamera.app.camera.DeviceCameraReport
 import com.radphonecamera.app.camera.FrameProbeResult
+import com.radphonecamera.app.data.ScanEvent
 import com.radphonecamera.app.detector.AlarmState
 import com.radphonecamera.app.detector.LiveScanProgress
 import java.util.Locale
@@ -59,6 +60,7 @@ fun RadPhoneCameraApp(
     baselineProgress: BaselineProgress,
     baselineResult: BaselineResult?,
     liveScanProgress: LiveScanProgress?,
+    scanEvents: List<ScanEvent>,
     onRequestCameraPermission: () -> Unit,
     onRefresh: () -> Unit,
     onRunBaseline: (String) -> Unit,
@@ -111,6 +113,10 @@ fun RadPhoneCameraApp(
                     )
                 }
 
+                item {
+                    ScanEventLogPanel(scanEvents)
+                }
+
                 report?.let { cameraReport ->
                     val anyCaptureRunning = runningProbeCameraId != null ||
                         runningBaselineCameraId != null ||
@@ -133,6 +139,56 @@ fun RadPhoneCameraApp(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ScanEventLogPanel(scanEvents: List<ScanEvent>) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "Scan log",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (scanEvents.isEmpty()) {
+                Text(
+                    text = "No completed quick scans yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            } else {
+                scanEvents.take(MAX_VISIBLE_SCAN_EVENTS).forEach { event ->
+                    ScanEventRow(event)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScanEventRow(event: ScanEvent) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = "Camera ${event.cameraId}: ${event.alarmState.label}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            text = "${event.timestampMillis.eventAgeText()} - ${event.eventsPerMinute.fixed(1)} candidate events/min, ${event.validDarkFrames}/${event.framesAnalyzed} valid frames.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.secondary,
+        )
+        if (event.baselineFrameCount > 0) {
+            Text(
+                text = "Baseline Z ${event.baselineZScore.fixed(1)} from ${event.baselineFrameCount} baseline frames.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
         }
     }
 }
@@ -639,5 +695,19 @@ private fun BaselineResult.ageText(nowMillis: Long): String {
     }
 }
 
+private fun Long.eventAgeText(nowMillis: Long = System.currentTimeMillis()): String {
+    val elapsedMillis = (nowMillis - this).coerceAtLeast(0L)
+    val elapsedMinutes = elapsedMillis / MILLIS_PER_MINUTE
+    val elapsedHours = elapsedMillis / MILLIS_PER_HOUR
+    return when {
+        elapsedMinutes < 1L -> "just now"
+        elapsedMinutes < 60L -> "${elapsedMinutes}m ago"
+        elapsedHours < 24L -> "${elapsedHours}h ago"
+        else -> "${elapsedHours / 24L}d ago"
+    }
+}
+
+private const val MAX_VISIBLE_SCAN_EVENTS = 5
+private const val MILLIS_PER_MINUTE = 60L * 1_000L
 private const val MILLIS_PER_HOUR = 60L * 60L * 1_000L
 private const val BASELINE_STALE_MILLIS = 72L * MILLIS_PER_HOUR

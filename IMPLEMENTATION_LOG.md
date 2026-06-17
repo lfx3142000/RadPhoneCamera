@@ -1,5 +1,59 @@
 # Implementation Log
 
+## 2026-06-17
+
+### Summary
+
+Added a local rolling event log for completed Quick scan runs. The app now keeps
+summary-only scan history on device and shows the latest entries on the main
+screen.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.1.6` / versionCode `7` for update-over-install.
+- Added `ScanEvent` summary records for completed Quick scans.
+- Added a compact local scan-event codec and SharedPreferences-backed store.
+- Wrote completed Quick scan results into the local rolling log.
+- Added a main-screen scan log panel showing recent scan status, candidate
+  event rate, valid-frame count, and baseline Z-score when available.
+- Added unit tests for scan-event log encoding and invalid-row handling.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/data/ScanEventLog.kt`
+- `app/src/main/java/com/radphonecamera/app/data/ScanEventLogStore.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/data/ScanEventLogCodecTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- The local scan log does not yet have delete/export controls.
+- Event logging is currently tied to completed Quick scans, not baseline runs,
+  patrol bursts, or multi-camera aggregate scans.
+
+### Recommended Next Tasks
+
+- Add delete local data and CSV export controls for the event log.
+- Add multi-camera weighted scan aggregation.
+- Add motion/orientation stability checks.
+
+---
+
 ## 2026-06-16
 
 ### Summary
