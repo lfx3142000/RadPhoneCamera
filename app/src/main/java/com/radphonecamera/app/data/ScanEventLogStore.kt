@@ -14,6 +14,12 @@ class ScanEventLogStore(
         save((listOf(event) + load()).take(MAX_EVENTS))
     }
 
+    fun clear() {
+        prefs.edit()
+            .remove(KEY_EVENTS)
+            .apply()
+    }
+
     private fun save(events: List<ScanEvent>) {
         prefs.edit()
             .putString(KEY_EVENTS, ScanEventLogCodec.encode(events))

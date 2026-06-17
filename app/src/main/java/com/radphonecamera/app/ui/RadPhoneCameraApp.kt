@@ -61,6 +61,8 @@ fun RadPhoneCameraApp(
     baselineResult: BaselineResult?,
     liveScanProgress: LiveScanProgress?,
     scanEvents: List<ScanEvent>,
+    onExportScanLog: () -> Unit,
+    onClearScanLog: () -> Unit,
     onRequestCameraPermission: () -> Unit,
     onRefresh: () -> Unit,
     onRunBaseline: (String) -> Unit,
@@ -114,7 +116,11 @@ fun RadPhoneCameraApp(
                 }
 
                 item {
-                    ScanEventLogPanel(scanEvents)
+                    ScanEventLogPanel(
+                        scanEvents = scanEvents,
+                        onExportScanLog = onExportScanLog,
+                        onClearScanLog = onClearScanLog,
+                    )
                 }
 
                 report?.let { cameraReport ->
@@ -144,7 +150,11 @@ fun RadPhoneCameraApp(
 }
 
 @Composable
-private fun ScanEventLogPanel(scanEvents: List<ScanEvent>) {
+private fun ScanEventLogPanel(
+    scanEvents: List<ScanEvent>,
+    onExportScanLog: () -> Unit,
+    onClearScanLog: () -> Unit,
+) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -155,6 +165,25 @@ private fun ScanEventLogPanel(scanEvents: List<ScanEvent>) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = onExportScanLog,
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
+                    enabled = scanEvents.isNotEmpty(),
+                ) {
+                    Text("Export CSV")
+                }
+                Button(
+                    onClick = onClearScanLog,
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
+                    enabled = scanEvents.isNotEmpty(),
+                ) {
+                    Text("Delete log")
+                }
+            }
             if (scanEvents.isEmpty()) {
                 Text(
                     text = "No completed quick scans yet.",

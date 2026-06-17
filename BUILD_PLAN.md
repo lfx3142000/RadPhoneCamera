@@ -18,8 +18,8 @@ Last updated: 2026-06-17
 | Baseline reminders | In progress | Shows baseline age and recommends refresh after 72 hours without new dark data. |
 | Detector core logic | In progress | Added hot-pixel rejection, sparse event detection, candidate events/minute, persisted baseline event stats, rolling baseline, Z-score, and alarm-state helpers with unit tests. |
 | Guided quick scan UX | In progress | Added a 30-second Quick scan after usable baseline, with scan countdown, valid-frame fraction, candidate events/minute, baseline Z-score when available, conservative status, persisted hot-pixel-mask use, and Stop control. |
-| Local event log | In progress | Completed quick scans are stored locally as rolling summary records with no images, GPS, or raw frames. |
-| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 7 and `RadPhoneCamera-debug.zip` refreshed for GitHub download. |
+| Local event log | In progress | Completed quick scans are stored locally as rolling summary records with no images, GPS, or raw frames; CSV export and delete controls are available. |
+| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 8 and `RadPhoneCamera-debug.zip` refreshed for GitHub download. |
 
 Agent runs should update this section and `IMPLEMENTATION_LOG.md` after completed work.
 

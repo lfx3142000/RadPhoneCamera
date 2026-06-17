@@ -4,6 +4,59 @@
 
 ### Summary
 
+Added local scan-log management. Users can now export completed Quick scan
+summary records as CSV through Android share targets and delete the local
+summary log from the main screen.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.1.7` / versionCode `8` for update-over-install.
+- Added CSV export formatting for local scan-event summaries.
+- Added a Scan log export button that shares text/csv data through Android's
+  standard share flow.
+- Added a Delete log button that clears only the local scan summary history.
+- Added unit coverage for CSV export field escaping and header output.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/data/ScanEventLog.kt`
+- `app/src/main/java/com/radphonecamera/app/data/ScanEventLogStore.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/data/ScanEventLogCodecTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- CSV export currently uses Android text sharing rather than writing a dedicated
+  file through a document picker.
+- Event logging is still limited to completed Quick scans.
+
+### Recommended Next Tasks
+
+- Add multi-camera weighted scan aggregation.
+- Add motion/orientation stability checks.
+- Add optional foreground Patrol mode scaffolding.
+
+---
+
+## 2026-06-17
+
+### Summary
+
 Added a local rolling event log for completed Quick scan runs. The app now keeps
 summary-only scan history on device and shows the latest entries on the main
 screen.

@@ -1,6 +1,7 @@
 package com.radphonecamera.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -25,6 +26,7 @@ import com.radphonecamera.app.camera.FrameProbeResult
 import com.radphonecamera.app.camera.FrameProbeSession
 import com.radphonecamera.app.camera.LumaFrameSnapshot
 import com.radphonecamera.app.data.ScanEvent
+import com.radphonecamera.app.data.ScanEventLogCodec
 import com.radphonecamera.app.data.ScanEventLogStore
 import com.radphonecamera.app.data.toScanEvent
 import com.radphonecamera.app.detector.BaselineEventStats
@@ -296,6 +298,21 @@ class MainActivity : ComponentActivity() {
                 runningScanCameraId = null
             }
 
+            fun exportScanLog() {
+                if (scanEvents.isEmpty()) return
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/csv"
+                    putExtra(Intent.EXTRA_SUBJECT, "RadPhoneCamera scan log")
+                    putExtra(Intent.EXTRA_TEXT, ScanEventLogCodec.toCsv(scanEvents))
+                }
+                startActivity(Intent.createChooser(sendIntent, "Export scan log"))
+            }
+
+            fun clearScanLog() {
+                scanEventLogStore.clear()
+                scanEvents = emptyList()
+            }
+
             LaunchedEffect(cameraPermissionGranted) {
                 refreshReport()
             }
@@ -313,6 +330,8 @@ class MainActivity : ComponentActivity() {
                 baselineResult = baselineResult,
                 liveScanProgress = liveScanProgress,
                 scanEvents = scanEvents,
+                onExportScanLog = ::exportScanLog,
+                onClearScanLog = ::clearScanLog,
                 onRequestCameraPermission = {
                     permissionLauncher.launch(Manifest.permission.CAMERA)
                 },

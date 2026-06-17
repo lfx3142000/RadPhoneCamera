@@ -44,6 +44,42 @@ object ScanEventLogCodec {
             .mapNotNull { line -> decodeLine(line) }
             .toList()
 
+    fun toCsv(events: List<ScanEvent>): String =
+        buildString {
+            appendLine(
+                listOf(
+                    "timestamp_millis",
+                    "camera_id",
+                    "alarm_state",
+                    "duration_millis",
+                    "frames_analyzed",
+                    "valid_dark_frames",
+                    "candidate_events",
+                    "events_per_minute",
+                    "valid_frame_fraction",
+                    "baseline_z_score",
+                    "baseline_frame_count",
+                ).joinToString(","),
+            )
+            events.forEach { event ->
+                appendLine(
+                    listOf(
+                        event.timestampMillis.toString(),
+                        event.cameraId.csvField(),
+                        event.alarmState.name,
+                        event.durationMillis.toString(),
+                        event.framesAnalyzed.toString(),
+                        event.validDarkFrames.toString(),
+                        event.candidateEvents.toString(),
+                        event.eventsPerMinute.toString(),
+                        event.validFrameFraction.toString(),
+                        event.baselineZScore.toString(),
+                        event.baselineFrameCount.toString(),
+                    ).joinToString(","),
+                )
+            }
+        }
+
     private fun decodeLine(line: String): ScanEvent? {
         val parts = line.split(FIELD_SEPARATOR)
         if (parts.size != EXPECTED_FIELDS || parts[0] != FORMAT_VERSION) return null
@@ -71,6 +107,13 @@ object ScanEventLogCodec {
 
     private fun String.decodeField(): String =
         String(Base64.getUrlDecoder().decode(this), StandardCharsets.UTF_8)
+
+    private fun String.csvField(): String =
+        if (contains(",") || contains("\"") || contains("\n") || contains("\r")) {
+            "\"${replace("\"", "\"\"")}\""
+        } else {
+            this
+        }
 
     private const val FORMAT_VERSION = "1"
     private const val FIELD_SEPARATOR = "|"

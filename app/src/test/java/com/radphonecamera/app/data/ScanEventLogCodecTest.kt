@@ -34,4 +34,34 @@ class ScanEventLogCodecTest {
 
         assertEquals(emptyList<ScanEvent>(), restored)
     }
+
+    @Test
+    fun scanEventsExportAsCsv() {
+        val events = listOf(
+            ScanEvent(
+                timestampMillis = 123L,
+                cameraId = "camera,rear",
+                alarmState = AlarmState.Elevated,
+                durationMillis = 30_000L,
+                framesAnalyzed = 90,
+                validDarkFrames = 80,
+                candidateEvents = 3,
+                eventsPerMinute = 6.0,
+                validFrameFraction = 0.88,
+                baselineZScore = 5.25,
+                baselineFrameCount = 60,
+            ),
+        )
+
+        val csv = ScanEventLogCodec.toCsv(events)
+
+        assertEquals(
+            true,
+            csv.contains("\"camera,rear\""),
+        )
+        assertEquals(
+            true,
+            csv.lines().first().contains("baseline_z_score"),
+        )
+    }
 }
