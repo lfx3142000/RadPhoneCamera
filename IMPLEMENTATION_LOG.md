@@ -4,6 +4,54 @@
 
 ### Summary
 
+Fixed the guided baseline capture lifecycle so the 60-second baseline stops by
+itself when the timer completes, even if camera frame callbacks are busy. Stop
+now requests cleanup immediately instead of waiting behind camera callback work.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.1.9` / versionCode `10` for update-over-install.
+- Added a duration-reached guard inside live frame processing so timed captures
+  finish as soon as the requested duration is reached.
+- Made Stop request capture cleanup immediately.
+- Updated first-use baseline text to state that baseline capture stops
+  automatically when the timer reaches 0.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/camera/FrameProbe.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Baseline auto-stop still needs confirmation on the physical test phone.
+
+### Recommended Next Tasks
+
+- Install this APK and verify the baseline screen clears itself at 60 seconds.
+- Add sequential multi-camera Quick scan orchestration.
+- Add motion/orientation stability checks.
+
+---
+
+## 2026-06-19
+
+### Summary
+
 Added the first multi-camera aggregation slice. The app now computes a weighted
 multi-camera plan from discovered camera detector scores and shows combined
 readiness in the device check area.

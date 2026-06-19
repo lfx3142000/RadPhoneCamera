@@ -289,7 +289,7 @@ private fun FirstUsePanel(
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
-                text = "For the baseline: put the phone face down on a flat surface or inside a dark pocket. Leave it still for 60 seconds. Use Stop if you need to cancel.",
+                text = "For the baseline: put the phone face down on a flat surface or inside a dark pocket. Leave it still for 60 seconds. It stops automatically when the timer reaches 0; use Stop only if you need to cancel.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
@@ -718,7 +718,7 @@ private fun firstUseMessage(
     runningScanCameraId: String?,
 ): String = when {
     report == null -> "Grant camera access, then wait for the device check to list usable cameras."
-    runningBaselineCameraId != null -> "Baseline is running. Keep the phone dark and still until the count finishes or tap Stop."
+    runningBaselineCameraId != null -> "Baseline is running. Keep the phone dark and still until the timer reaches 0. It will stop automatically."
     runningScanCameraId != null -> "Quick scan is running. Keep the phone face down, dark, and still until the timer finishes."
     baselineResult?.isStale() == true -> "Baseline is usable, but a refresh is recommended. Tap Start baseline with the phone face down and still."
     baselineResult?.enablesNormalAlarmMode == true -> "Baseline is ready. Use Quick scan for a 30-second dark scan, or repeat baseline if conditions change."

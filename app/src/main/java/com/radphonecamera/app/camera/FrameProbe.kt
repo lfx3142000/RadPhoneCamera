@@ -126,6 +126,9 @@ class FrameProbe(
             )
         }
 
+        fun durationReached(): Boolean =
+            SystemClock.elapsedRealtime() - startedAtMillis >= safeDurationMillis
+
         lateinit var timeoutRunnable: Runnable
         lateinit var tickRunnable: Runnable
 
@@ -183,6 +186,11 @@ class FrameProbe(
                                     image.close()
                                     return@setOnImageAvailableListener
                                 }
+                                if (durationReached()) {
+                                    image.close()
+                                    finish()
+                                    return@setOnImageAvailableListener
+                                }
                                 try {
                                     val stats = FrameStatsCalculator.fromImage(image)
                                     val darkState = DarkStateClassifier.classify(stats)
@@ -191,9 +199,13 @@ class FrameProbe(
                                     latestDarkState = darkState
                                     latestSnapshot = snapshot
                                     frameCount += 1
-                                    listener.onProgress(
-                                        buildResult(),
-                                    )
+                                    if (durationReached()) {
+                                        finish()
+                                    } else {
+                                        listener.onProgress(
+                                            buildResult(),
+                                        )
+                                    }
                                 } finally {
                                     image.close()
                                 }
@@ -261,9 +273,7 @@ class FrameProbe(
         }
 
         return FrameProbeSession {
-            if (!handler.post { finish("Stopped by user.") }) {
-                finish("Stopped by user.")
-            }
+            finish("Stopped by user.")
         }
     }
 

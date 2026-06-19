@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.1.8` / versionCode `9`.
+- Current debug version: `0.1.9` / versionCode `10`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -32,6 +32,7 @@ trained radiation specialist.
 - First-use guidance that tells the user to start with baseline collection.
 - Visible countdown for timed camera tests, 60-second baseline collection, and
   30-second quick scans.
+- Baseline capture self-stops when the 60-second timer reaches 0.
 - Stop button for active camera tests, baseline collection, and quick scans.
 - Stale camera callbacks are ignored after Stop or after a new capture starts.
 - Dark-frame quality classification.
