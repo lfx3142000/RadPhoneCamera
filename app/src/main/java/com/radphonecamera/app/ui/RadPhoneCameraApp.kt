@@ -34,6 +34,7 @@ import com.radphonecamera.app.camera.FrameProbeResult
 import com.radphonecamera.app.data.ScanEvent
 import com.radphonecamera.app.detector.AlarmState
 import com.radphonecamera.app.detector.LiveScanProgress
+import com.radphonecamera.app.detector.MultiCameraWeighting
 import java.util.Locale
 
 private val AppColors = lightColorScheme(
@@ -359,6 +360,21 @@ private fun StatusPanel(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
                 )
+            }
+            report?.let {
+                val plan = MultiCameraWeighting.plan(it.cameras)
+                Text(
+                    text = "Multi-camera plan: ${plan.supportLevel.label}, ${plan.activeCameraCount} usable channels, combined score ${plan.combinedScore}/100.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                if (plan.cameraWeights.size > 1) {
+                    Text(
+                        text = "Weights: ${plan.cameraWeights.take(3).joinToString { weight -> "camera ${weight.cameraId} ${(weight.weight * 100.0).fixed(0)}%" }}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
             }
         }
     }

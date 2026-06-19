@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.1.7` / versionCode `8`.
+- Current debug version: `0.1.8` / versionCode `9`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -47,6 +47,7 @@ trained radiation specialist.
 - Local rolling scan log for completed quick scans. It stores summary results
   only, not images.
 - Scan-log CSV export through Android share targets and local scan-log delete.
+- Multi-camera weighted planning from discovered camera detector scores.
 - Hot-pixel map generation from dark frames.
 - Sparse bright-cluster event detection.
 - Persisted baseline candidate-event statistics for conservative scan

@@ -1,5 +1,56 @@
 # Implementation Log
 
+## 2026-06-19
+
+### Summary
+
+Added the first multi-camera aggregation slice. The app now computes a weighted
+multi-camera plan from discovered camera detector scores and shows combined
+readiness in the device check area.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.1.8` / versionCode `9` for update-over-install.
+- Added deterministic multi-camera weighting from usable Camera2 channels.
+- Added combined multi-camera detector readiness score and support level.
+- Added UI display for usable channels, combined score, and top camera weights.
+- Added unit coverage for unsupported-camera exclusion, normalized weights, and
+  no-eligible-camera behavior.
+- Refreshed the GitHub APK zip artifact.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/detector/MultiCameraWeighting.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/detector/MultiCameraWeightingTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- The app does not yet run sequential or simultaneous multi-camera scans.
+- Combined score is currently based on camera capability scores, not live
+  per-camera scan statistics.
+
+### Recommended Next Tasks
+
+- Add sequential multi-camera Quick scan orchestration.
+- Add motion/orientation stability checks.
+- Add optional foreground Patrol mode scaffolding.
+
+---
+
 ## 2026-06-17
 
 ### Summary
