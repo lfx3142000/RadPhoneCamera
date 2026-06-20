@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.1.9` / versionCode `10`.
+- Current debug version: `0.2.0` / versionCode `11`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -35,6 +35,8 @@ trained radiation specialist.
 - Baseline capture self-stops when the 60-second timer reaches 0.
 - Stop button for active camera tests, baseline collection, and quick scans.
 - Stale camera callbacks are ignored after Stop or after a new capture starts.
+- Accelerometer-based still/moving and face-down/face-up posture checks.
+- Moving frames are excluded from baseline and Quick scan valid-frame counts.
 - Dark-frame quality classification.
 - Initial 60-second baseline/refresh workflow with Good/Fair/Poor/Invalid
   scoring.
@@ -45,6 +47,11 @@ trained radiation specialist.
 - Quick scan mode after a usable baseline, showing candidate events/minute,
   valid dark-frame fraction, scan status, baseline Z-score when available, and
   hot-pixel-mask status.
+- Sequential multi-camera Quick scan across up to three top-weighted Camera2
+  channels with a combined weighted result and local summary log entry.
+- Patrol policy scaffold with Battery Saver, Balanced, and Max Sensitivity
+  modes; baseline, low-battery, thermal, and motion gates are visible.
+- Patrol does not yet launch autonomous camera bursts or background capture.
 - Local rolling scan log for completed quick scans. It stores summary results
   only, not images.
 - Scan-log CSV export through Android share targets and local scan-log delete.

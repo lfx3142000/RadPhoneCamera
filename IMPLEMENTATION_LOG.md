@@ -1,5 +1,77 @@
 # Implementation Log
 
+## 2026-06-20
+
+### Summary
+
+Completed the next three implementation slices: accelerometer-based
+motion/orientation checks, sequential multi-camera Quick scan, and a
+battery-aware Patrol policy scaffold. The app now rejects moving frames from
+baseline and scan validity, can scan up to three weighted camera channels one
+after another, and exposes conservative Patrol readiness without continuous
+camera or background capture.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.2.0` / versionCode `11` for update-over-install.
+- Added accelerometer-based Still, Mostly still, Moving, and unavailable sensor
+  states plus face-down, face-up, upright, and side posture classification.
+- Displayed motion/orientation state and rejected moving frames from baseline
+  and Quick scan valid-frame counts.
+- Added sequential multi-camera Quick scan for the top two or three eligible
+  weighted Camera2 channels.
+- Added weighted combined candidate rate, Z-score, frame-quality result, and
+  local aggregate scan-log entry for completed multi-camera scans.
+- Added Patrol Battery Saver, Balanced, and Max Sensitivity selection.
+- Added baseline, low-battery, thermal, motion, and posture gates to Patrol
+  readiness, with no continuous or autonomous camera capture yet.
+- Added unit tests for motion classification, multi-camera aggregation, and
+  Patrol scheduling.
+
+### Tests And Verification
+
+- Ran `.\gradlew.bat test assembleDebug`.
+- Result: build successful.
+- Refreshed downloadable zip:
+  `C:\Users\fhidi\Documents\Rad phone camera\RadPhoneCamera-debug.zip`
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/detector/MultiCameraScanAggregator.kt`
+- `app/src/main/java/com/radphonecamera/app/patrol/PatrolScheduler.kt`
+- `app/src/main/java/com/radphonecamera/app/sensors/BatteryThermalStateProvider.kt`
+- `app/src/main/java/com/radphonecamera/app/sensors/MotionState.kt`
+- `app/src/main/java/com/radphonecamera/app/sensors/MotionStateProvider.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/detector/MultiCameraScanAggregatorTest.kt`
+- `app/src/test/java/com/radphonecamera/app/patrol/PatrolSchedulerTest.kt`
+- `app/src/test/java/com/radphonecamera/app/sensors/MotionStateClassifierTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Multi-camera scan currently has a stored baseline/hot-pixel mask only for the
+  camera used to collect the baseline; per-camera baselines are not yet stored.
+- Patrol is a visible policy/readiness scaffold only. It does not start
+  foreground service, scheduled background work, or autonomous camera bursts.
+
+### Recommended Next Tasks
+
+- Add per-camera baseline storage and sequential multi-camera baseline
+  collection before using combined results beyond experimental testing.
+- Add bounded foreground Patrol short-burst execution with notification and
+  lifecycle controls.
+- Add the remaining onboarding, privacy settings, dose-band, calibration, and
+  validation documentation work.
+
+---
+
 ## 2026-06-19
 
 ### Summary

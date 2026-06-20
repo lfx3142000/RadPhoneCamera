@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +36,15 @@ import com.radphonecamera.app.detector.HotPixelMap
 import com.radphonecamera.app.detector.LiveScanAccumulator
 import com.radphonecamera.app.detector.LiveScanFrameInput
 import com.radphonecamera.app.detector.LiveScanProgress
+import com.radphonecamera.app.detector.MultiCameraScanAggregator
+import com.radphonecamera.app.detector.MultiCameraScanProgress
+import com.radphonecamera.app.detector.MultiCameraWeighting
+import com.radphonecamera.app.patrol.PatrolBatteryMode
+import com.radphonecamera.app.patrol.PatrolScheduler
+import com.radphonecamera.app.sensors.BatteryThermalState
+import com.radphonecamera.app.sensors.BatteryThermalStateProvider
+import com.radphonecamera.app.sensors.MotionState
+import com.radphonecamera.app.sensors.MotionStateProvider
 import com.radphonecamera.app.ui.RadPhoneCameraApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,6 +66,7 @@ class MainActivity : ComponentActivity() {
             var baselineProgress by remember { mutableStateOf(BaselineProgress()) }
             val baselineStore = remember { BaselineStore(this@MainActivity) }
             val scanEventLogStore = remember { ScanEventLogStore(this@MainActivity) }
+            val batteryThermalProvider = remember { BatteryThermalStateProvider(this@MainActivity) }
             val savedBaselineResult = remember { baselineStore.load() }
             val savedHotPixelMap = remember {
                 savedBaselineResult?.cameraId?.let { cameraId ->
@@ -64,6 +75,7 @@ class MainActivity : ComponentActivity() {
             }
             var baselineResult by remember { mutableStateOf(savedBaselineResult) }
             var liveScanProgress by remember { mutableStateOf<LiveScanProgress?>(null) }
+            var multiCameraScanProgress by remember { mutableStateOf<MultiCameraScanProgress?>(null) }
             var scanEvents by remember { mutableStateOf<List<ScanEvent>>(scanEventLogStore.load()) }
             var activeHotPixelMap by remember { mutableStateOf(savedHotPixelMap) }
             var activeHotPixelCameraId by remember {
@@ -71,15 +83,33 @@ class MainActivity : ComponentActivity() {
             }
             var activeProbeSession by remember { mutableStateOf<FrameProbeSession?>(null) }
             var activeCaptureId by remember { mutableStateOf(0) }
+            var runningMultiCameraScan by remember { mutableStateOf(false) }
+            var motionState by remember { mutableStateOf(MotionState.Unavailable) }
+            var batteryThermalState by remember { mutableStateOf(BatteryThermalState.Unknown) }
+            var patrolEnabled by remember { mutableStateOf(false) }
+            var patrolBatteryMode by remember { mutableStateOf(PatrolBatteryMode.Balanced) }
             val scope = rememberCoroutineScope()
             val permissionLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestPermission(),
             ) { granted ->
                 cameraPermissionGranted = granted
             }
+            val baselineStale = baselineResult?.let {
+                it.collectedAtMillis > 0L &&
+                    System.currentTimeMillis() - it.collectedAtMillis > BASELINE_STALE_MILLIS
+            } ?: false
+            val patrolStatus = PatrolScheduler.evaluate(
+                enabled = patrolEnabled,
+                mode = patrolBatteryMode,
+                hasUsableBaseline = baselineResult?.enablesNormalAlarmMode == true,
+                baselineStale = baselineStale,
+                motionState = motionState,
+                batteryThermalState = batteryThermalState,
+            )
 
             fun refreshReport() {
                 if (!cameraPermissionGranted) return
+                batteryThermalState = batteryThermalProvider.read()
                 scope.launch {
                     loadingReport = true
                     reportError = null
@@ -91,6 +121,9 @@ class MainActivity : ComponentActivity() {
                     loadingReport = false
                 }
             }
+
+            fun motionGatedQuality(quality: DarkQuality?): DarkQuality? =
+                if (motionState.allowsDetectorFrame) quality else DarkQuality.Invalid
 
             fun runBaseline(cameraId: String) {
                 var progress = BaselineProgress()
@@ -107,6 +140,8 @@ class MainActivity : ComponentActivity() {
                 baselineResult = null
                 probeResult = null
                 liveScanProgress = null
+                multiCameraScanProgress = null
+                runningMultiCameraScan = false
 
                 activeProbeSession = FrameProbe(this@MainActivity).runSingleCameraProbe(
                     cameraId = cameraId,
@@ -114,11 +149,12 @@ class MainActivity : ComponentActivity() {
                     listener = object : FrameProbeListener {
                         override fun onProgress(result: FrameProbeResult) {
                             if (result.framesAnalyzed > lastRecordedBaselineFrameCount) {
-                                progress = progress.record(result.latestDarkState?.quality)
+                                val effectiveQuality = motionGatedQuality(result.latestDarkState?.quality)
+                                progress = progress.record(effectiveQuality)
                                 lastRecordedBaselineFrameCount = result.framesAnalyzed
                                 if (
-                                    result.latestDarkState?.quality == DarkQuality.Good ||
-                                    result.latestDarkState?.quality == DarkQuality.Fair
+                                    effectiveQuality == DarkQuality.Good ||
+                                    effectiveQuality == DarkQuality.Fair
                                 ) {
                                     result.latestSnapshot?.let { snapshot ->
                                         if (
@@ -201,7 +237,9 @@ class MainActivity : ComponentActivity() {
                 runningScanCameraId = cameraId
                 runningProbeCameraId = null
                 runningBaselineCameraId = null
+                runningMultiCameraScan = false
                 probeResult = null
+                multiCameraScanProgress = null
                 liveScanProgress = accumulator.snapshot(
                     durationMillis = durationMillis,
                     elapsedMillis = 0L,
@@ -216,7 +254,7 @@ class MainActivity : ComponentActivity() {
                                 width = snapshot.width,
                                 height = snapshot.height,
                                 luma = snapshot.luma,
-                                darkQuality = result.latestDarkState?.quality,
+                                darkQuality = motionGatedQuality(result.latestDarkState?.quality),
                             ),
                         )
                         lastRecordedFrameCount = result.framesAnalyzed
@@ -269,11 +307,179 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            fun runSequentialMultiCameraScan() {
+                val currentReport = report ?: return
+                val plan = MultiCameraWeighting.plan(currentReport.cameras)
+                val selectedCameraIds = plan.cameraWeights
+                    .take(MAX_MULTI_CAMERA_SCAN_CHANNELS)
+                    .map { it.cameraId }
+                if (selectedCameraIds.size < 2) return
+
+                val perCameraDurationMillis = (
+                    QUICK_SCAN_DURATION_MILLIS / selectedCameraIds.size
+                    ).coerceAtLeast(MIN_MULTI_CAMERA_SEGMENT_MILLIS)
+                val completedProgress = mutableListOf<LiveScanProgress>()
+                val previousSession = activeProbeSession
+                val captureId = activeCaptureId + 1
+                activeCaptureId = captureId
+                previousSession?.stop()
+                runningMultiCameraScan = true
+                runningProbeCameraId = null
+                runningBaselineCameraId = null
+                probeResult = null
+                liveScanProgress = null
+                multiCameraScanProgress = MultiCameraScanAggregator.combine(
+                    plan = plan,
+                    selectedCameraIds = selectedCameraIds,
+                    progressByCamera = emptyList(),
+                    activeCameraId = selectedCameraIds.firstOrNull(),
+                    perCameraDurationMillis = perCameraDurationMillis,
+                )
+
+                fun aggregateProgress(
+                    activeProgress: LiveScanProgress? = null,
+                    activeCameraId: String? = null,
+                    error: String? = null,
+                ): MultiCameraScanProgress =
+                    MultiCameraScanAggregator.combine(
+                        plan = plan,
+                        selectedCameraIds = selectedCameraIds,
+                        progressByCamera = completedProgress.toList() + listOfNotNull(activeProgress),
+                        activeCameraId = activeCameraId,
+                        perCameraDurationMillis = perCameraDurationMillis,
+                        error = error,
+                    )
+
+                fun finishMultiCameraScan(finalProgress: MultiCameraScanProgress) {
+                    if (finalProgress.framesAnalyzed > 0 && finalProgress.error == null) {
+                        scanEventLogStore.append(
+                            ScanEvent(
+                                timestampMillis = System.currentTimeMillis(),
+                                cameraId = "multi:${finalProgress.cameraIds.joinToString("+")}",
+                                alarmState = finalProgress.alarmState,
+                                durationMillis = finalProgress.durationMillis,
+                                framesAnalyzed = finalProgress.framesAnalyzed,
+                                validDarkFrames = finalProgress.validDarkFrames,
+                                candidateEvents = finalProgress.candidateEvents,
+                                eventsPerMinute = finalProgress.weightedEventsPerMinute,
+                                validFrameFraction = finalProgress.validFrameFraction,
+                                baselineZScore = finalProgress.baselineZScore,
+                                baselineFrameCount = finalProgress.baselineFrameCount,
+                            ),
+                        )
+                        scanEvents = scanEventLogStore.load()
+                    }
+                    multiCameraScanProgress = finalProgress
+                    liveScanProgress = null
+                    probeResult = null
+                    runningScanCameraId = null
+                    runningMultiCameraScan = false
+                    activeProbeSession = null
+                }
+
+                fun startCamera(index: Int) {
+                    if (captureId != activeCaptureId) return
+                    val cameraId = selectedCameraIds.getOrNull(index)
+                    if (cameraId == null) {
+                        val error = completedProgress
+                            .mapNotNull { it.error }
+                            .takeIf { it.isNotEmpty() }
+                            ?.joinToString("; ")
+                        finishMultiCameraScan(
+                            aggregateProgress(error = error),
+                        )
+                        return
+                    }
+
+                    val hotPixelMap = activeHotPixelMap.takeIf { activeHotPixelCameraId == cameraId }
+                    val accumulator = LiveScanAccumulator(
+                        cameraId = cameraId,
+                        hotPixelMap = hotPixelMap,
+                        baselineModel = baselineResult?.baselineModel,
+                    )
+                    var lastRecordedFrameCount = 0
+                    runningScanCameraId = cameraId
+                    liveScanProgress = accumulator.snapshot(
+                        durationMillis = perCameraDurationMillis,
+                        elapsedMillis = 0L,
+                        remainingMillis = perCameraDurationMillis,
+                    )
+                    multiCameraScanProgress = aggregateProgress(
+                        activeProgress = liveScanProgress,
+                        activeCameraId = cameraId,
+                    )
+
+                    fun recordLatestFrame(result: FrameProbeResult) {
+                        val snapshot = result.latestSnapshot
+                        if (snapshot != null && result.framesAnalyzed > lastRecordedFrameCount) {
+                            accumulator.recordFrame(
+                                LiveScanFrameInput(
+                                    width = snapshot.width,
+                                    height = snapshot.height,
+                                    luma = snapshot.luma,
+                                    darkQuality = motionGatedQuality(result.latestDarkState?.quality),
+                                ),
+                            )
+                            lastRecordedFrameCount = result.framesAnalyzed
+                        }
+                    }
+
+                    activeProbeSession = FrameProbe(this@MainActivity).runSingleCameraProbe(
+                        cameraId = cameraId,
+                        durationMillis = perCameraDurationMillis,
+                        listener = object : FrameProbeListener {
+                            override fun onProgress(result: FrameProbeResult) {
+                                recordLatestFrame(result)
+                                val progress = accumulator.snapshot(
+                                    durationMillis = result.durationMillis,
+                                    elapsedMillis = result.elapsedMillis,
+                                    remainingMillis = result.remainingMillis,
+                                )
+                                runOnUiThread {
+                                    if (captureId == activeCaptureId) {
+                                        liveScanProgress = progress
+                                        probeResult = result
+                                        multiCameraScanProgress = aggregateProgress(
+                                            activeProgress = progress,
+                                            activeCameraId = cameraId,
+                                        )
+                                    }
+                                }
+                            }
+
+                            override fun onCompleted(result: FrameProbeResult) {
+                                recordLatestFrame(result)
+                                val progress = accumulator.snapshot(
+                                    durationMillis = result.durationMillis,
+                                    elapsedMillis = result.elapsedMillis,
+                                    remainingMillis = result.remainingMillis,
+                                    error = result.error,
+                                )
+                                runOnUiThread {
+                                    if (captureId == activeCaptureId) {
+                                        completedProgress += progress
+                                        liveScanProgress = progress
+                                        probeResult = result
+                                        multiCameraScanProgress = aggregateProgress(
+                                            activeCameraId = cameraId,
+                                        )
+                                        startCamera(index + 1)
+                                    }
+                                }
+                            }
+                        },
+                    )
+                }
+
+                startCamera(0)
+            }
+
             fun stopActiveCapture() {
                 val wasBaselineRunning = runningBaselineCameraId != null
                 val wasAnyCaptureRunning = runningProbeCameraId != null ||
                     runningBaselineCameraId != null ||
-                    runningScanCameraId != null
+                    runningScanCameraId != null ||
+                    runningMultiCameraScan
                 val wasScanRunning = runningScanCameraId != null
                 activeCaptureId += 1
                 activeProbeSession?.stop()
@@ -287,6 +493,12 @@ class MainActivity : ComponentActivity() {
                         error = USER_STOPPED_ERROR,
                     )
                 }
+                if (runningMultiCameraScan) {
+                    multiCameraScanProgress = multiCameraScanProgress?.copy(
+                        remainingMillis = 0L,
+                        error = USER_STOPPED_ERROR,
+                    )
+                }
                 if (wasAnyCaptureRunning) {
                     probeResult = probeResult?.copy(
                         remainingMillis = 0L,
@@ -296,6 +508,7 @@ class MainActivity : ComponentActivity() {
                 runningProbeCameraId = null
                 runningBaselineCameraId = null
                 runningScanCameraId = null
+                runningMultiCameraScan = false
             }
 
             fun exportScanLog() {
@@ -311,6 +524,20 @@ class MainActivity : ComponentActivity() {
             fun clearScanLog() {
                 scanEventLogStore.clear()
                 scanEvents = emptyList()
+            }
+
+            DisposableEffect(Unit) {
+                val motionStateProvider = MotionStateProvider(this@MainActivity)
+                motionStateProvider.start { state ->
+                    runOnUiThread {
+                        motionState = state
+                    }
+                }
+                batteryThermalState = batteryThermalProvider.read()
+
+                onDispose {
+                    motionStateProvider.stop()
+                }
             }
 
             LaunchedEffect(cameraPermissionGranted) {
@@ -329,6 +556,12 @@ class MainActivity : ComponentActivity() {
                 baselineProgress = baselineProgress,
                 baselineResult = baselineResult,
                 liveScanProgress = liveScanProgress,
+                multiCameraScanProgress = multiCameraScanProgress,
+                runningMultiCameraScan = runningMultiCameraScan,
+                motionState = motionState,
+                batteryThermalState = batteryThermalState,
+                patrolStatus = patrolStatus,
+                patrolBatteryMode = patrolBatteryMode,
                 scanEvents = scanEvents,
                 onExportScanLog = ::exportScanLog,
                 onClearScanLog = ::clearScanLog,
@@ -338,7 +571,16 @@ class MainActivity : ComponentActivity() {
                 onRefresh = ::refreshReport,
                 onRunBaseline = ::runBaseline,
                 onRunQuickScan = ::runQuickScan,
+                onRunMultiCameraScan = ::runSequentialMultiCameraScan,
                 onStopCapture = ::stopActiveCapture,
+                onTogglePatrol = {
+                    batteryThermalState = batteryThermalProvider.read()
+                    patrolEnabled = !patrolEnabled
+                },
+                onSetPatrolBatteryMode = {
+                    batteryThermalState = batteryThermalProvider.read()
+                    patrolBatteryMode = it
+                },
                 onRunProbe = { cameraId ->
                     val previousSession = activeProbeSession
                     val captureId = activeCaptureId + 1
@@ -347,7 +589,9 @@ class MainActivity : ComponentActivity() {
                     runningProbeCameraId = cameraId
                     runningBaselineCameraId = null
                     runningScanCameraId = null
+                    runningMultiCameraScan = false
                     probeResult = null
+                    multiCameraScanProgress = null
                     activeProbeSession = FrameProbe(this@MainActivity).runSingleCameraProbe(
                         cameraId = cameraId,
                         listener = object : FrameProbeListener {
@@ -391,8 +635,11 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val QUICK_SCAN_DURATION_MILLIS = 30_000L
+        const val MAX_MULTI_CAMERA_SCAN_CHANNELS = 3
+        const val MIN_MULTI_CAMERA_SEGMENT_MILLIS = 10_000L
         const val MAX_BASELINE_SNAPSHOTS = 120
         const val BASELINE_SNAPSHOT_INTERVAL = 5
+        const val BASELINE_STALE_MILLIS = 72L * 60L * 60L * 1_000L
         const val USER_STOPPED_ERROR = "Stopped by user."
     }
 }
