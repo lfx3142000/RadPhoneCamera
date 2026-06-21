@@ -13,6 +13,7 @@ enum class PatrolBatteryMode(val label: String) {
 
 enum class PatrolReadiness(val label: String) {
     Off("Off"),
+    PausedBackground("Paused: app not visible"),
     NeedsBaseline("Baseline required"),
     PausedLowBattery("Paused: low battery"),
     PausedThermal("Paused: phone warm"),
@@ -38,6 +39,7 @@ object PatrolScheduler {
         baselineStale: Boolean,
         motionState: MotionState,
         batteryThermalState: BatteryThermalState,
+        appInForeground: Boolean = true,
     ): PatrolStatus {
         val burstDuration = mode.burstDurationSeconds()
         val interval = mode.minimumIntervalSeconds()
@@ -51,6 +53,18 @@ object PatrolScheduler {
                 minimumIntervalSeconds = interval,
                 allowsCameraBurst = false,
                 reason = "Patrol is off; the camera is closed.",
+            )
+        }
+
+        if (!appInForeground) {
+            return PatrolStatus(
+                enabled = true,
+                mode = mode,
+                readiness = PatrolReadiness.PausedBackground,
+                burstDurationSeconds = burstDuration,
+                minimumIntervalSeconds = interval,
+                allowsCameraBurst = false,
+                reason = "Patrol only runs while this app is visible; the camera is closed in the background.",
             )
         }
 

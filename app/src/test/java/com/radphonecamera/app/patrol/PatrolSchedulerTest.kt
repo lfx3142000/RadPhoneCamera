@@ -56,6 +56,22 @@ class PatrolSchedulerTest {
         assertTrue(status.allowsCameraBurst)
     }
 
+    @Test
+    fun patrolClosesTheCameraWhenTheAppIsNotVisible() {
+        val status = PatrolScheduler.evaluate(
+            enabled = true,
+            mode = PatrolBatteryMode.Balanced,
+            hasUsableBaseline = true,
+            baselineStale = false,
+            motionState = stillFaceDown,
+            batteryThermalState = normalBattery,
+            appInForeground = false,
+        )
+
+        assertEquals(PatrolReadiness.PausedBackground, status.readiness)
+        assertFalse(status.allowsCameraBurst)
+    }
+
     private val stillFaceDown = MotionState(
         quality = MotionQuality.Still,
         posture = DevicePosture.FaceDown,

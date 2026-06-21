@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import com.radphonecamera.app.baseline.BaselineProgress
 import com.radphonecamera.app.baseline.BaselineQuality
 import com.radphonecamera.app.baseline.BaselineResult
+import com.radphonecamera.app.baseline.CameraBaselineCoverage
+import com.radphonecamera.app.baseline.MultiCameraBaselineProgress
 import com.radphonecamera.app.camera.CameraCapability
 import com.radphonecamera.app.camera.DeviceCameraReport
 import com.radphonecamera.app.camera.FrameProbeResult
@@ -65,6 +67,10 @@ fun RadPhoneCameraApp(
     probeResult: FrameProbeResult?,
     baselineProgress: BaselineProgress,
     baselineResult: BaselineResult?,
+    baselinesByCamera: Map<String, BaselineResult>,
+    cameraBaselineCoverage: CameraBaselineCoverage?,
+    multiCameraBaselineProgress: MultiCameraBaselineProgress?,
+    runningMultiCameraBaseline: Boolean,
     liveScanProgress: LiveScanProgress?,
     multiCameraScanProgress: MultiCameraScanProgress?,
     runningMultiCameraScan: Boolean,
@@ -72,12 +78,16 @@ fun RadPhoneCameraApp(
     batteryThermalState: BatteryThermalState,
     patrolStatus: PatrolStatus,
     patrolBatteryMode: PatrolBatteryMode,
+    patrolBurstProgress: LiveScanProgress?,
+    patrolLastBurstAtMillis: Long,
+    patrolNextBurstAtMillis: Long,
     scanEvents: List<ScanEvent>,
     onExportScanLog: () -> Unit,
     onClearScanLog: () -> Unit,
     onRequestCameraPermission: () -> Unit,
     onRefresh: () -> Unit,
     onRunBaseline: (String) -> Unit,
+    onRunMultiCameraBaseline: () -> Unit,
     onRunQuickScan: (String) -> Unit,
     onRunMultiCameraScan: () -> Unit,
     onStopCapture: () -> Unit,
@@ -88,7 +98,8 @@ fun RadPhoneCameraApp(
     val anyCaptureRunning = runningProbeCameraId != null ||
         runningBaselineCameraId != null ||
         runningScanCameraId != null ||
-        runningMultiCameraScan
+        runningMultiCameraScan ||
+        runningMultiCameraBaseline
 
     MaterialTheme(colorScheme = AppColors) {
         Surface(
@@ -144,6 +155,9 @@ fun RadPhoneCameraApp(
                         patrolBatteryMode = patrolBatteryMode,
                         batteryThermalState = batteryThermalState,
                         motionState = motionState,
+                        patrolBurstProgress = patrolBurstProgress,
+                        patrolLastBurstAtMillis = patrolLastBurstAtMillis,
+                        patrolNextBurstAtMillis = patrolNextBurstAtMillis,
                         onTogglePatrol = onTogglePatrol,
                         onSetPatrolBatteryMode = onSetPatrolBatteryMode,
                     )
@@ -151,9 +165,19 @@ fun RadPhoneCameraApp(
 
                 report?.let { cameraReport ->
                     item {
+                        MultiCameraBaselinePanel(
+                            coverage = cameraBaselineCoverage,
+                            progress = multiCameraBaselineProgress,
+                            running = runningMultiCameraBaseline,
+                            anyCaptureRunning = anyCaptureRunning,
+                            onRunMultiCameraBaseline = onRunMultiCameraBaseline,
+                            onStopCapture = onStopCapture,
+                        )
+                    }
+                    item {
                         MultiCameraScanPanel(
                             report = cameraReport,
-                            baselineResult = baselineResult,
+                            coverage = cameraBaselineCoverage,
                             progress = multiCameraScanProgress,
                             runningMultiCameraScan = runningMultiCameraScan,
                             anyCaptureRunning = anyCaptureRunning,
@@ -180,7 +204,7 @@ fun RadPhoneCameraApp(
                             isScanRunning = runningScanCameraId == camera.cameraId,
                             anyCaptureRunning = anyCaptureRunning,
                             probeResult = probeResult?.takeIf { it.cameraId == camera.cameraId },
-                            baselineResult = baselineResult,
+                            baselineResult = baselinesByCamera[camera.cameraId],
                             liveScanProgress = liveScanProgress?.takeIf { it.cameraId == camera.cameraId },
                             onRunBaseline = { onRunBaseline(camera.cameraId) },
                             onRunQuickScan = { onRunQuickScan(camera.cameraId) },
@@ -446,6 +470,9 @@ private fun PatrolPanel(
     patrolBatteryMode: PatrolBatteryMode,
     batteryThermalState: BatteryThermalState,
     motionState: MotionState,
+    patrolBurstProgress: LiveScanProgress?,
+    patrolLastBurstAtMillis: Long,
+    patrolNextBurstAtMillis: Long,
     onTogglePatrol: () -> Unit,
     onSetPatrolBatteryMode: (PatrolBatteryMode) -> Unit,
 ) {
@@ -482,10 +509,34 @@ private fun PatrolPanel(
                 color = MaterialTheme.colorScheme.secondary,
             )
             Text(
-                text = "Short burst ${patrolStatus.burstDurationSeconds}s, minimum interval ${patrolStatus.minimumIntervalSeconds}s. Continuous camera use stays off in this debug scaffold.",
+                text = "Foreground-only Patrol uses ${patrolStatus.burstDurationSeconds}s bursts at least ${patrolStatus.minimumIntervalSeconds}s apart. It closes the camera when the app is not visible.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
+            patrolBurstProgress?.let { progress ->
+                Text(
+                    text = if (progress.remainingMillis > 0L) {
+                        "Burst on camera ${progress.cameraId}: ${progress.remainingMillis.asSeconds()} remaining."
+                    } else {
+                        "Last burst on camera ${progress.cameraId}: ${progress.candidateEvents} candidates in ${progress.framesAnalyzed} frames."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            if (patrolStatus.enabled && patrolNextBurstAtMillis > 0L) {
+                Text(
+                    text = "Next eligible burst: ${patrolNextBurstAtMillis.timeFromNowText()}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            } else if (patrolLastBurstAtMillis > 0L) {
+                Text(
+                    text = "Last Patrol burst: ${patrolLastBurstAtMillis.timeAgoText()}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
             Text(
                 text = "Battery ${batteryThermalState.batteryPercent?.let { "$it%" } ?: "unknown"}, charging ${batteryThermalState.isCharging.label()}, thermal ${batteryThermalState.thermalStatus}.",
                 style = MaterialTheme.typography.bodySmall,
@@ -515,9 +566,88 @@ private fun PatrolPanel(
 }
 
 @Composable
+private fun MultiCameraBaselinePanel(
+    coverage: CameraBaselineCoverage?,
+    progress: MultiCameraBaselineProgress?,
+    running: Boolean,
+    anyCaptureRunning: Boolean,
+    onRunMultiCameraBaseline: () -> Unit,
+    onStopCapture: () -> Unit,
+) {
+    val eligibleCameraIds = coverage?.eligibleCameraIds.orEmpty()
+    val missingCameraIds = coverage?.missingCameraIds.orEmpty()
+    val canStart = eligibleCameraIds.isNotEmpty() && !anyCaptureRunning
+
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Camera baselines",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = when {
+                    eligibleCameraIds.isEmpty() -> "No Camera2 YUV channel is eligible for a detector baseline."
+                    coverage?.isComplete == true -> "Baselines ready for ${coverage.coveredCameraCount}/${eligibleCameraIds.size} selected cameras."
+                    else -> "Baseline coverage ${coverage?.coveredCameraCount ?: 0}/${eligibleCameraIds.size}. Multi-camera scans stay limited until each selected camera has a usable dark baseline."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            if (missingCameraIds.isNotEmpty()) {
+                Text(
+                    text = "Needs baseline: ${missingCameraIds.joinToString()}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = onRunMultiCameraBaseline,
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                    enabled = canStart,
+                ) {
+                    Text(if (running) "Collecting" else "Refresh all baselines")
+                }
+                if (running) {
+                    Button(
+                        onClick = onStopCapture,
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                    ) {
+                        Text("Stop")
+                    }
+                }
+            }
+            progress?.let {
+                val activeCameraText = it.activeCameraId?.let { cameraId -> "Collecting camera $cameraId" }
+                    ?: "Baseline collection finished"
+                Text(
+                    text = "$activeCameraText, ${it.completedCameraCount}/${it.totalCameraCount} cameras complete.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                if (it.failedCameraIds.isNotEmpty()) {
+                    Text(
+                        text = "Needs retry: ${it.failedCameraIds.joinToString()}.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun MultiCameraScanPanel(
     report: DeviceCameraReport,
-    baselineResult: BaselineResult?,
+    coverage: CameraBaselineCoverage?,
     progress: MultiCameraScanProgress?,
     runningMultiCameraScan: Boolean,
     anyCaptureRunning: Boolean,
@@ -527,7 +657,7 @@ private fun MultiCameraScanPanel(
     val plan = MultiCameraWeighting.plan(report.cameras)
     val selectedCameraIds = plan.cameraWeights.take(MAX_MULTI_CAMERA_SCAN_CHANNELS).map { it.cameraId }
     val enabled = selectedCameraIds.size >= 2 &&
-        baselineResult?.enablesNormalAlarmMode == true &&
+        coverage?.isComplete == true &&
         !anyCaptureRunning
 
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -542,7 +672,11 @@ private fun MultiCameraScanPanel(
             )
             Text(
                 text = if (selectedCameraIds.size >= 2) {
-                    "Sequential scan: cameras ${selectedCameraIds.joinToString()}, weighted by device check score."
+                    if (coverage?.isComplete == true) {
+                        "Sequential scan: cameras ${selectedCameraIds.joinToString()}, each using its own baseline and hot-pixel mask."
+                    } else {
+                        "Collect a usable baseline for every selected camera before multi-camera scanning."
+                    }
                 } else {
                     "Multi-camera scan needs at least two usable Camera2 YUV channels."
                 },
@@ -965,6 +1099,16 @@ private fun baselineStatusText(
 private fun Long.asSeconds(): String {
     val seconds = ((this + 999L) / 1_000L).coerceAtLeast(0L)
     return "${seconds}s"
+}
+
+private fun Long.timeFromNowText(): String {
+    val seconds = ((this - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1_000L
+    return if (seconds < 60L) "in ${seconds}s" else "in ${(seconds + 59L) / 60L}m"
+}
+
+private fun Long.timeAgoText(): String {
+    val seconds = ((System.currentTimeMillis() - this).coerceAtLeast(0L) + 999L) / 1_000L
+    return if (seconds < 60L) "${seconds}s ago" else "${(seconds + 59L) / 60L}m ago"
 }
 
 private fun firstUseMessage(

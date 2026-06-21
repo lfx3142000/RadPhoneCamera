@@ -4,6 +4,75 @@
 
 ### Summary
 
+Completed the next multi-camera and Patrol execution batch. Baselines now
+persist independently for each camera channel, the app can collect those
+baselines sequentially, and foreground-only Patrol now performs bounded,
+gated detector bursts instead of being a display-only scaffold.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.2.1` / versionCode `12` for update-over-install.
+- Migrated the prior installed single-camera baseline into the new per-camera
+  storage format on first read, preserving the baseline, compact hot-pixel
+  mask, and candidate-event statistics.
+- Added per-camera baseline coverage calculation and UI so multi-camera Quick
+  scans require a usable baseline for every selected channel.
+- Added sequential 60-second baseline collection for up to three weighted
+  eligible Camera2 channels, including progress, retry, and Stop states.
+- Routed single-camera, multi-camera, and Patrol detector runs to each
+  camera's own baseline model and hot-pixel mask.
+- Added foreground-only Patrol burst execution using the selected baseline
+  camera, with short capture duration, interval backoff, local summary logging,
+  and immediate stop when the app leaves the foreground.
+- Added foreground visibility to Patrol scheduling gates and unit tests for
+  background pause plus multi-camera baseline coverage.
+
+### Tests And Verification
+
+- Ran `test assembleDebug` through Gradle 8.9 using the local Android SDK and
+  shared read-only dependency cache.
+- Result: `BUILD SUCCESSFUL`; unit tests and debug APK assembly completed.
+- Kotlin daemon startup is restricted in the sandbox, so Gradle compiled with
+  its successful in-process fallback.
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineStore.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/CameraBaselineCoverage.kt`
+- `app/src/main/java/com/radphonecamera/app/patrol/PatrolScheduler.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/baseline/CameraBaselineCoverageCalculatorTest.kt`
+- `app/src/test/java/com/radphonecamera/app/patrol/PatrolSchedulerTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Patrol deliberately stays foreground-only. It has no foreground service,
+  notification permission flow, background scheduling, or background camera
+  access yet.
+- Multi-camera capture is sequential. Simultaneous camera access remains
+  device-specific future work.
+
+### Recommended Next Tasks
+
+- Add baseline-refresh triggers for app/OS/camera changes, repeated limited
+  scans, and measured noise/thermal changes.
+- Add the planned permission/privacy onboarding and settings controls.
+- Build conservative alarm/dose-band and expert-diagnostics UI without adding
+  exact dose-rate claims.
+
+---
+
+## 2026-06-20
+
+### Summary
+
 Completed the next three implementation slices: accelerometer-based
 motion/orientation checks, sequential multi-camera Quick scan, and a
 battery-aware Patrol policy scaffold. The app now rejects moving frames from

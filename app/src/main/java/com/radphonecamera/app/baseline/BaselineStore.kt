@@ -8,21 +8,115 @@ class BaselineStore(
 ) {
     private val prefs = context.getSharedPreferences("baseline_store", Context.MODE_PRIVATE)
 
+    /**
+     * Returns the most recently saved camera baseline. Legacy single-camera
+     * records are migrated on first read so an app update keeps existing data.
+     */
     fun load(): BaselineResult? {
-        val qualityName = prefs.getString(KEY_QUALITY, null) ?: return null
-        val quality = runCatching { BaselineQuality.valueOf(qualityName) }.getOrNull() ?: return null
-        val totalFrames = prefs.getInt(KEY_TOTAL_FRAMES, 0)
-        val progress = BaselineProgress(
-            totalFrames = totalFrames,
-            goodFrames = prefs.getInt(KEY_GOOD_FRAMES, 0),
-            fairFrames = prefs.getInt(KEY_FAIR_FRAMES, 0),
-            poorFrames = prefs.getInt(KEY_POOR_FRAMES, 0),
-            invalidFrames = prefs.getInt(KEY_INVALID_FRAMES, 0),
-        )
+        migrateLegacyBaselineIfNeeded()
+        val primaryCameraId = prefs.getString(KEY_PRIMARY_CAMERA_ID, null)
+        return primaryCameraId?.let(::load)
+            ?: loadAll().values.maxByOrNull { it.collectedAtMillis }
+    }
 
+    fun load(cameraId: String): BaselineResult? {
+        migrateLegacyBaselineIfNeeded()
+        if (cameraId !in savedCameraIds()) return null
+        return loadCameraBaseline(cameraId)
+    }
+
+    fun loadAll(): Map<String, BaselineResult> {
+        migrateLegacyBaselineIfNeeded()
+        return savedCameraIds().mapNotNull { cameraId ->
+            loadCameraBaseline(cameraId)?.let { cameraId to it }
+        }.toMap()
+    }
+
+    fun loadHotPixelMap(cameraId: String): HotPixelMap? {
+        migrateLegacyBaselineIfNeeded()
+        if (cameraId !in savedCameraIds()) return null
+        val prefix = cameraPrefix(cameraId)
+        val width = prefs.getInt("${prefix}${KEY_HOT_PIXEL_WIDTH}", 0)
+        val height = prefs.getInt("${prefix}${KEY_HOT_PIXEL_HEIGHT}", 0)
+        if (width <= 0 || height <= 0) return null
+        return HotPixelMap.fromPackedString(
+            width = width,
+            height = height,
+            packedHotPixels = prefs.getString("${prefix}${KEY_HOT_PIXEL_PACKED}", null).orEmpty(),
+        )
+    }
+
+    fun save(
+        result: BaselineResult,
+        hotPixelMap: HotPixelMap? = null,
+    ) {
+        val cameraId = result.cameraId ?: return
+        val prefix = cameraPrefix(cameraId)
+        val cameraIds = savedCameraIds() + cameraId
+        prefs.edit()
+            .putStringSet(KEY_CAMERA_IDS, cameraIds)
+            .putString(KEY_PRIMARY_CAMERA_ID, cameraId)
+            .putString("${prefix}${KEY_QUALITY}", result.quality.name)
+            .putString("${prefix}${KEY_MESSAGE}", result.message)
+            .putInt("${prefix}${KEY_TOTAL_FRAMES}", result.progress.totalFrames)
+            .putInt("${prefix}${KEY_GOOD_FRAMES}", result.progress.goodFrames)
+            .putInt("${prefix}${KEY_FAIR_FRAMES}", result.progress.fairFrames)
+            .putInt("${prefix}${KEY_POOR_FRAMES}", result.progress.poorFrames)
+            .putInt("${prefix}${KEY_INVALID_FRAMES}", result.progress.invalidFrames)
+            .putInt("${prefix}${KEY_HOT_PIXEL_COUNT}", result.hotPixelCount)
+            .putLong("${prefix}${KEY_COLLECTED_AT}", result.collectedAtMillis)
+            .putInt("${prefix}${KEY_BASELINE_EVENT_FRAME_COUNT}", result.baselineEventFrameCount)
+            .putInt("${prefix}${KEY_BASELINE_CANDIDATE_EVENTS}", result.baselineCandidateEvents)
+            .putDouble("${prefix}${KEY_BASELINE_EVENT_MEAN}", result.baselineMeanEventsPerFrame)
+            .putDouble("${prefix}${KEY_BASELINE_EVENT_VARIANCE}", result.baselineVarianceEventsPerFrame)
+            .writeHotPixelMap(prefix, hotPixelMap)
+            .apply()
+    }
+
+    private fun loadCameraBaseline(cameraId: String): BaselineResult? {
+        val prefix = cameraPrefix(cameraId)
+        val qualityName = prefs.getString("${prefix}${KEY_QUALITY}", null) ?: return null
+        val quality = runCatching { BaselineQuality.valueOf(qualityName) }.getOrNull() ?: return null
+        val progress = BaselineProgress(
+            totalFrames = prefs.getInt("${prefix}${KEY_TOTAL_FRAMES}", 0),
+            goodFrames = prefs.getInt("${prefix}${KEY_GOOD_FRAMES}", 0),
+            fairFrames = prefs.getInt("${prefix}${KEY_FAIR_FRAMES}", 0),
+            poorFrames = prefs.getInt("${prefix}${KEY_POOR_FRAMES}", 0),
+            invalidFrames = prefs.getInt("${prefix}${KEY_INVALID_FRAMES}", 0),
+        )
         return BaselineResult(
             quality = quality,
             progress = progress,
+            message = prefs.getString("${prefix}${KEY_MESSAGE}", null) ?: quality.defaultMessage(),
+            cameraId = cameraId,
+            hotPixelCount = prefs.getInt("${prefix}${KEY_HOT_PIXEL_COUNT}", 0),
+            collectedAtMillis = prefs.getLong("${prefix}${KEY_COLLECTED_AT}", 0L),
+            baselineEventFrameCount = prefs.getInt("${prefix}${KEY_BASELINE_EVENT_FRAME_COUNT}", 0),
+            baselineCandidateEvents = prefs.getInt("${prefix}${KEY_BASELINE_CANDIDATE_EVENTS}", 0),
+            baselineMeanEventsPerFrame = prefs.getDouble("${prefix}${KEY_BASELINE_EVENT_MEAN}"),
+            baselineVarianceEventsPerFrame = prefs.getDouble("${prefix}${KEY_BASELINE_EVENT_VARIANCE}"),
+        )
+    }
+
+    private fun migrateLegacyBaselineIfNeeded() {
+        if (savedCameraIds().isNotEmpty()) return
+        val legacyResult = loadLegacyBaseline() ?: return
+        val cameraId = legacyResult.cameraId ?: return
+        save(legacyResult, loadLegacyHotPixelMap(cameraId))
+    }
+
+    private fun loadLegacyBaseline(): BaselineResult? {
+        val qualityName = prefs.getString(KEY_QUALITY, null) ?: return null
+        val quality = runCatching { BaselineQuality.valueOf(qualityName) }.getOrNull() ?: return null
+        return BaselineResult(
+            quality = quality,
+            progress = BaselineProgress(
+                totalFrames = prefs.getInt(KEY_TOTAL_FRAMES, 0),
+                goodFrames = prefs.getInt(KEY_GOOD_FRAMES, 0),
+                fairFrames = prefs.getInt(KEY_FAIR_FRAMES, 0),
+                poorFrames = prefs.getInt(KEY_POOR_FRAMES, 0),
+                invalidFrames = prefs.getInt(KEY_INVALID_FRAMES, 0),
+            ),
             message = prefs.getString(KEY_MESSAGE, null) ?: quality.defaultMessage(),
             cameraId = prefs.getString(KEY_CAMERA_ID, null),
             hotPixelCount = prefs.getInt(KEY_HOT_PIXEL_COUNT, 0),
@@ -34,58 +128,37 @@ class BaselineStore(
         )
     }
 
-    fun loadHotPixelMap(cameraId: String): HotPixelMap? {
+    private fun loadLegacyHotPixelMap(cameraId: String): HotPixelMap? {
         if (prefs.getString(KEY_HOT_PIXEL_CAMERA_ID, null) != cameraId) return null
         val width = prefs.getInt(KEY_HOT_PIXEL_WIDTH, 0)
         val height = prefs.getInt(KEY_HOT_PIXEL_HEIGHT, 0)
         if (width <= 0 || height <= 0) return null
-        val packedHotPixels = prefs.getString(KEY_HOT_PIXEL_PACKED, null).orEmpty()
         return HotPixelMap.fromPackedString(
             width = width,
             height = height,
-            packedHotPixels = packedHotPixels,
+            packedHotPixels = prefs.getString(KEY_HOT_PIXEL_PACKED, null).orEmpty(),
         )
     }
 
-    fun save(
-        result: BaselineResult,
-        hotPixelMap: HotPixelMap? = null,
-    ) {
-        prefs.edit()
-            .putString(KEY_QUALITY, result.quality.name)
-            .putString(KEY_MESSAGE, result.message)
-            .putString(KEY_CAMERA_ID, result.cameraId)
-            .putInt(KEY_TOTAL_FRAMES, result.progress.totalFrames)
-            .putInt(KEY_GOOD_FRAMES, result.progress.goodFrames)
-            .putInt(KEY_FAIR_FRAMES, result.progress.fairFrames)
-            .putInt(KEY_POOR_FRAMES, result.progress.poorFrames)
-            .putInt(KEY_INVALID_FRAMES, result.progress.invalidFrames)
-            .putInt(KEY_HOT_PIXEL_COUNT, result.hotPixelCount)
-            .putLong(KEY_COLLECTED_AT, result.collectedAtMillis)
-            .putInt(KEY_BASELINE_EVENT_FRAME_COUNT, result.baselineEventFrameCount)
-            .putInt(KEY_BASELINE_CANDIDATE_EVENTS, result.baselineCandidateEvents)
-            .putDouble(KEY_BASELINE_EVENT_MEAN, result.baselineMeanEventsPerFrame)
-            .putDouble(KEY_BASELINE_EVENT_VARIANCE, result.baselineVarianceEventsPerFrame)
-            .writeHotPixelMap(result.cameraId, hotPixelMap)
-            .apply()
-    }
+    private fun savedCameraIds(): Set<String> =
+        prefs.getStringSet(KEY_CAMERA_IDS, emptySet()).orEmpty().toSet()
+
+    private fun cameraPrefix(cameraId: String): String = "camera.$cameraId."
 
     private fun android.content.SharedPreferences.Editor.writeHotPixelMap(
-        cameraId: String?,
+        prefix: String,
         hotPixelMap: HotPixelMap?,
     ): android.content.SharedPreferences.Editor {
-        if (cameraId == null || hotPixelMap == null) {
-            remove(KEY_HOT_PIXEL_CAMERA_ID)
-            remove(KEY_HOT_PIXEL_WIDTH)
-            remove(KEY_HOT_PIXEL_HEIGHT)
-            remove(KEY_HOT_PIXEL_PACKED)
+        if (hotPixelMap == null) {
+            remove("${prefix}${KEY_HOT_PIXEL_WIDTH}")
+            remove("${prefix}${KEY_HOT_PIXEL_HEIGHT}")
+            remove("${prefix}${KEY_HOT_PIXEL_PACKED}")
             return this
         }
 
-        putString(KEY_HOT_PIXEL_CAMERA_ID, cameraId)
-        putInt(KEY_HOT_PIXEL_WIDTH, hotPixelMap.width)
-        putInt(KEY_HOT_PIXEL_HEIGHT, hotPixelMap.height)
-        putString(KEY_HOT_PIXEL_PACKED, hotPixelMap.toPackedString(MAX_STORED_HOT_PIXELS))
+        putInt("${prefix}${KEY_HOT_PIXEL_WIDTH}", hotPixelMap.width)
+        putInt("${prefix}${KEY_HOT_PIXEL_HEIGHT}", hotPixelMap.height)
+        putString("${prefix}${KEY_HOT_PIXEL_PACKED}", hotPixelMap.toPackedString(MAX_STORED_HOT_PIXELS))
         return this
     }
 
@@ -107,7 +180,9 @@ class BaselineStore(
         BaselineQuality.Invalid -> "No usable dark-frame baseline was collected."
     }
 
-    companion object {
+    private companion object {
+        private const val KEY_CAMERA_IDS = "camera_ids"
+        private const val KEY_PRIMARY_CAMERA_ID = "primary_camera_id"
         private const val KEY_QUALITY = "quality"
         private const val KEY_MESSAGE = "message"
         private const val KEY_CAMERA_ID = "camera_id"

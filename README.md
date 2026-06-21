@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.2.0` / versionCode `11`.
+- Current debug version: `0.2.1` / versionCode `12`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -40,7 +40,9 @@ trained radiation specialist.
 - Dark-frame quality classification.
 - Initial 60-second baseline/refresh workflow with Good/Fair/Poor/Invalid
   scoring.
-- Baseline summary persistence across app restarts.
+- Per-camera baseline, hot-pixel mask, and candidate-event-statistic persistence
+  across app restarts, with automatic migration of earlier single-camera data.
+- Sequential baseline collection for up to three selected Camera2 channels.
 - Baseline age display and a soft refresh reminder after 72 hours.
 - Live baseline capture hot-pixel map generation and bounded compact mask
   persistence across app restarts.
@@ -48,10 +50,12 @@ trained radiation specialist.
   valid dark-frame fraction, scan status, baseline Z-score when available, and
   hot-pixel-mask status.
 - Sequential multi-camera Quick scan across up to three top-weighted Camera2
-  channels with a combined weighted result and local summary log entry.
-- Patrol policy scaffold with Battery Saver, Balanced, and Max Sensitivity
-  modes; baseline, low-battery, thermal, and motion gates are visible.
-- Patrol does not yet launch autonomous camera bursts or background capture.
+  channels with a combined weighted result and local summary log entry. Each
+  channel requires its own usable baseline before multi-camera scanning starts.
+- Foreground-only Patrol short bursts with Battery Saver, Balanced, and Max
+  Sensitivity modes. Patrol respects baseline, low-battery, thermal, motion,
+  posture, and minimum-interval gates, and stops when the app is not visible.
+- Patrol does not run a background camera service or background capture.
 - Local rolling scan log for completed quick scans. It stores summary results
   only, not images.
 - Scan-log CSV export through Android share targets and local scan-log delete.
