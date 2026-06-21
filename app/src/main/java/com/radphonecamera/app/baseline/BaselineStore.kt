@@ -69,8 +69,17 @@ class BaselineStore(
             .putInt("${prefix}${KEY_BASELINE_CANDIDATE_EVENTS}", result.baselineCandidateEvents)
             .putDouble("${prefix}${KEY_BASELINE_EVENT_MEAN}", result.baselineMeanEventsPerFrame)
             .putDouble("${prefix}${KEY_BASELINE_EVENT_VARIANCE}", result.baselineVarianceEventsPerFrame)
+            .putString("${prefix}${KEY_APP_VERSION}", result.environment.appVersion)
+            .putInt("${prefix}${KEY_ANDROID_API_LEVEL}", result.environment.androidApiLevel)
+            .putString("${prefix}${KEY_DEVICE_MODEL}", result.environment.deviceModel)
+            .putString("${prefix}${KEY_CAMERA_SIGNATURE}", result.environment.cameraSignature)
+            .putString("${prefix}${KEY_THERMAL_STATUS}", result.environment.thermalStatus)
             .writeHotPixelMap(prefix, hotPixelMap)
             .apply()
+    }
+
+    fun clear() {
+        prefs.edit().clear().apply()
     }
 
     private fun loadCameraBaseline(cameraId: String): BaselineResult? {
@@ -95,6 +104,13 @@ class BaselineStore(
             baselineCandidateEvents = prefs.getInt("${prefix}${KEY_BASELINE_CANDIDATE_EVENTS}", 0),
             baselineMeanEventsPerFrame = prefs.getDouble("${prefix}${KEY_BASELINE_EVENT_MEAN}"),
             baselineVarianceEventsPerFrame = prefs.getDouble("${prefix}${KEY_BASELINE_EVENT_VARIANCE}"),
+            environment = BaselineEnvironmentSnapshot(
+                appVersion = prefs.getString("${prefix}${KEY_APP_VERSION}", null).orEmpty(),
+                androidApiLevel = prefs.getInt("${prefix}${KEY_ANDROID_API_LEVEL}", 0),
+                deviceModel = prefs.getString("${prefix}${KEY_DEVICE_MODEL}", null).orEmpty(),
+                cameraSignature = prefs.getString("${prefix}${KEY_CAMERA_SIGNATURE}", null).orEmpty(),
+                thermalStatus = prefs.getString("${prefix}${KEY_THERMAL_STATUS}", null).orEmpty(),
+            ),
         )
     }
 
@@ -201,6 +217,11 @@ class BaselineStore(
         private const val KEY_BASELINE_CANDIDATE_EVENTS = "baseline_candidate_events"
         private const val KEY_BASELINE_EVENT_MEAN = "baseline_event_mean"
         private const val KEY_BASELINE_EVENT_VARIANCE = "baseline_event_variance"
+        private const val KEY_APP_VERSION = "app_version"
+        private const val KEY_ANDROID_API_LEVEL = "android_api_level"
+        private const val KEY_DEVICE_MODEL = "device_model"
+        private const val KEY_CAMERA_SIGNATURE = "camera_signature"
+        private const val KEY_THERMAL_STATUS = "thermal_status"
         private const val MAX_STORED_HOT_PIXELS = 5_000
     }
 }

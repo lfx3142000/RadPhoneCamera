@@ -3,6 +3,7 @@ package com.radphonecamera.app
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,11 +20,14 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import com.radphonecamera.app.baseline.CameraBaselineCoverageCalculator
+import com.radphonecamera.app.baseline.BaselineEnvironmentSnapshot
 import com.radphonecamera.app.baseline.BaselineProgress
 import com.radphonecamera.app.baseline.BaselineQualityScorer
+import com.radphonecamera.app.baseline.BaselineRefreshEvaluator
 import com.radphonecamera.app.baseline.BaselineResult
 import com.radphonecamera.app.baseline.BaselineStore
 import com.radphonecamera.app.baseline.MultiCameraBaselineProgress
+import com.radphonecamera.app.baseline.baselineCameraSignature
 import com.radphonecamera.app.camera.CameraRepository
 import com.radphonecamera.app.camera.DeviceCameraReport
 import com.radphonecamera.app.camera.FrameProbe
@@ -34,6 +38,8 @@ import com.radphonecamera.app.camera.LumaFrameSnapshot
 import com.radphonecamera.app.data.ScanEvent
 import com.radphonecamera.app.data.ScanEventLogCodec
 import com.radphonecamera.app.data.ScanEventLogStore
+import com.radphonecamera.app.data.DetectorSettings
+import com.radphonecamera.app.data.DetectorSettingsStore
 import com.radphonecamera.app.data.toScanEvent
 import com.radphonecamera.app.detector.BaselineEventStats
 import com.radphonecamera.app.detector.DarkQuality
@@ -73,6 +79,7 @@ class MainActivity : ComponentActivity() {
             var baselineProgress by remember { mutableStateOf(BaselineProgress()) }
             val baselineStore = remember { BaselineStore(this@MainActivity) }
             val scanEventLogStore = remember { ScanEventLogStore(this@MainActivity) }
+            val detectorSettingsStore = remember { DetectorSettingsStore(this@MainActivity) }
             val batteryThermalProvider = remember { BatteryThermalStateProvider(this@MainActivity) }
             val savedBaselineResult = remember { baselineStore.load() }
             val savedBaselineResults = remember { baselineStore.loadAll() }
@@ -82,6 +89,8 @@ class MainActivity : ComponentActivity() {
             var multiCameraScanProgress by remember { mutableStateOf<MultiCameraScanProgress?>(null) }
             var multiCameraBaselineProgress by remember { mutableStateOf<MultiCameraBaselineProgress?>(null) }
             var scanEvents by remember { mutableStateOf<List<ScanEvent>>(scanEventLogStore.load()) }
+            var detectorSettings by remember { mutableStateOf(detectorSettingsStore.load()) }
+            var deleteLocalDataArmed by remember { mutableStateOf(false) }
             var activeProbeSession by remember { mutableStateOf<FrameProbeSession?>(null) }
             var activeCaptureId by remember { mutableStateOf(0) }
             var runningMultiCameraScan by remember { mutableStateOf(false) }
@@ -101,6 +110,20 @@ class MainActivity : ComponentActivity() {
             ) { granted ->
                 cameraPermissionGranted = granted
             }
+            fun baselineEnvironmentFor(cameraId: String?): BaselineEnvironmentSnapshot {
+                val cameraSignature = report
+                    ?.cameras
+                    ?.firstOrNull { it.cameraId == cameraId }
+                    ?.baselineCameraSignature()
+                    .orEmpty()
+                return BaselineEnvironmentSnapshot(
+                    appVersion = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty(),
+                    androidApiLevel = Build.VERSION.SDK_INT,
+                    deviceModel = Build.MODEL.orEmpty(),
+                    cameraSignature = cameraSignature,
+                    thermalStatus = batteryThermalState.thermalStatus,
+                )
+            }
             val cameraBaselineCoverage = report?.let { currentReport ->
                 CameraBaselineCoverageCalculator.evaluate(
                     cameras = currentReport.cameras,
@@ -114,6 +137,12 @@ class MainActivity : ComponentActivity() {
                 ?: baselineResult?.cameraId
             val patrolBaseline = patrolCameraId?.let { baselinesByCamera[it] }
                 ?: baselineResult
+            val baselineRefreshRecommendation = BaselineRefreshEvaluator.evaluate(
+                baseline = baselineResult,
+                currentEnvironment = baselineEnvironmentFor(baselineResult?.cameraId),
+                recentAlarmStates = scanEvents.map { it.alarmState },
+                nowMillis = System.currentTimeMillis(),
+            )
             val baselineStale = patrolBaseline?.let {
                 it.collectedAtMillis > 0L &&
                     System.currentTimeMillis() - it.collectedAtMillis > BASELINE_STALE_MILLIS
@@ -145,6 +174,12 @@ class MainActivity : ComponentActivity() {
 
             fun motionGatedQuality(quality: DarkQuality?): DarkQuality? =
                 if (motionState.allowsDetectorFrame) quality else DarkQuality.Invalid
+
+            fun appendScanEvent(event: ScanEvent) {
+                if (!detectorSettings.localEventLogEnabled) return
+                scanEventLogStore.append(event)
+                scanEvents = scanEventLogStore.load()
+            }
 
             fun startBaselineCapture(
                 cameraId: String,
@@ -219,6 +254,7 @@ class MainActivity : ComponentActivity() {
                                 baselineCandidateEvents = baselineEventStats.totalCandidateEvents,
                                 baselineMeanEventsPerFrame = baselineEventStats.meanEventsPerFrame,
                                 baselineVarianceEventsPerFrame = baselineEventStats.varianceEventsPerFrame,
+                                environment = baselineEnvironmentFor(cameraId),
                             )
                             runOnUiThread {
                                 if (captureId == activeCaptureId) {
@@ -387,10 +423,7 @@ class MainActivity : ComponentActivity() {
                             runOnUiThread {
                                 if (captureId == activeCaptureId) {
                                     if (result.error == null && progress.framesAnalyzed > 0) {
-                                        scanEventLogStore.append(
-                                            progress.toScanEvent(System.currentTimeMillis()),
-                                        )
-                                        scanEvents = scanEventLogStore.load()
+                                        appendScanEvent(progress.toScanEvent(System.currentTimeMillis()))
                                     }
                                     liveScanProgress = progress
                                     probeResult = result
@@ -454,7 +487,7 @@ class MainActivity : ComponentActivity() {
 
                 fun finishMultiCameraScan(finalProgress: MultiCameraScanProgress) {
                     if (finalProgress.framesAnalyzed > 0 && finalProgress.error == null) {
-                        scanEventLogStore.append(
+                        appendScanEvent(
                             ScanEvent(
                                 timestampMillis = System.currentTimeMillis(),
                                 cameraId = "multi:${finalProgress.cameraIds.joinToString("+")}",
@@ -469,7 +502,6 @@ class MainActivity : ComponentActivity() {
                                 baselineFrameCount = finalProgress.baselineFrameCount,
                             ),
                         )
-                        scanEvents = scanEventLogStore.load()
                     }
                     multiCameraScanProgress = finalProgress
                     liveScanProgress = null
@@ -654,10 +686,7 @@ class MainActivity : ComponentActivity() {
                             runOnUiThread {
                                 if (captureId == activeCaptureId) {
                                     if (result.error == null && progress.framesAnalyzed > 0) {
-                                        scanEventLogStore.append(
-                                            progress.toScanEvent(System.currentTimeMillis()),
-                                        )
-                                        scanEvents = scanEventLogStore.load()
+                                        appendScanEvent(progress.toScanEvent(System.currentTimeMillis()))
                                     }
                                     val completedAtMillis = System.currentTimeMillis()
                                     patrolLastBurstAtMillis = completedAtMillis
@@ -740,6 +769,26 @@ class MainActivity : ComponentActivity() {
             fun clearScanLog() {
                 scanEventLogStore.clear()
                 scanEvents = emptyList()
+            }
+
+            fun setLocalEventLogEnabled(enabled: Boolean) {
+                detectorSettings = detectorSettings.copy(localEventLogEnabled = enabled)
+                detectorSettingsStore.save(detectorSettings)
+            }
+
+            fun deleteLocalData() {
+                baselineStore.clear()
+                scanEventLogStore.clear()
+                detectorSettingsStore.clear()
+                baselineResult = null
+                baselinesByCamera = emptyMap()
+                baselineProgress = BaselineProgress()
+                scanEvents = emptyList()
+                detectorSettings = DetectorSettings()
+                multiCameraBaselineProgress = null
+                multiCameraScanProgress = null
+                liveScanProgress = null
+                deleteLocalDataArmed = false
             }
 
             val currentPatrolEnabled by rememberUpdatedState(patrolEnabled)
@@ -846,6 +895,7 @@ class MainActivity : ComponentActivity() {
                 probeResult = probeResult,
                 baselineProgress = baselineProgress,
                 baselineResult = baselineResult,
+                baselineRefreshRecommendation = baselineRefreshRecommendation,
                 baselinesByCamera = baselinesByCamera,
                 cameraBaselineCoverage = cameraBaselineCoverage,
                 multiCameraBaselineProgress = multiCameraBaselineProgress,
@@ -861,8 +911,15 @@ class MainActivity : ComponentActivity() {
                 patrolLastBurstAtMillis = patrolLastBurstAtMillis,
                 patrolNextBurstAtMillis = patrolNextBurstAtMillis,
                 scanEvents = scanEvents,
+                localEventLogEnabled = detectorSettings.localEventLogEnabled,
+                deleteLocalDataArmed = deleteLocalDataArmed,
                 onExportScanLog = ::exportScanLog,
                 onClearScanLog = ::clearScanLog,
+                onSetLocalEventLogEnabled = ::setLocalEventLogEnabled,
+                onRequestDeleteLocalData = {
+                    if (deleteLocalDataArmed) deleteLocalData() else deleteLocalDataArmed = true
+                },
+                onCancelDeleteLocalData = { deleteLocalDataArmed = false },
                 onRequestCameraPermission = {
                     permissionLauncher.launch(Manifest.permission.CAMERA)
                 },

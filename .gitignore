@@ -1,4 +1,6 @@
 .gradle/
+.gradle-sandbox/
+.kotlin/
 .idea/
 .android-sdk/
 build/
@@ -6,4 +8,3 @@ local.properties
 *.iml
 app/build/
 RadPhoneCamera-debug.apk
-

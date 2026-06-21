@@ -2,7 +2,7 @@
 
 ## Progress Status
 
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 | Area | Status | Notes |
 | ---- | ------ | ----- |
@@ -14,15 +14,15 @@ Last updated: 2026-06-20
 | Single-camera YUV probe | Complete | Captures YUV frames, attempts manual exposure/ISO/focus lock, and reports luma mean/variance/range. |
 | First-use guidance and stop controls | Complete | Added start-here instructions, countdown timer text, clearer button labels, stale-callback protection, immediate Stop cleanup, and explicit auto-stop guidance for baseline capture. |
 | Motion/orientation stability checks | Complete | Added on-device accelerometer state classification for still/moving and face-down/face-up posture; moving frames are rejected from baseline and Quick scan valid-frame counts. |
-| Baseline persistence | Complete | Per-camera baseline quality, frame counts, hot-pixel mask, event statistics, and timestamps are saved locally; existing single-camera records migrate automatically. |
+| Baseline persistence | Complete | Per-camera baseline quality, frame counts, hot-pixel mask, event statistics, timestamps, and baseline-time app/OS/camera/thermal profile are saved locally; existing single-camera records migrate automatically. |
 | Dark-state and baseline workflow | In progress | Added guided 60-second baseline/refresh scoring, forced timed auto-finish, motion-stability rejection, bounded hot-pixel maps, and sequential baseline capture for up to three selected channels. |
-| Baseline reminders | In progress | Shows baseline age and recommends refresh after 72 hours without new dark data. |
+| Baseline reminders | In progress | Recommends refresh for stale age, app/Android/camera-profile changes, warm thermal drift, and repeated limited-sensitivity scans; opportunistic dark-data volume is still pending. |
 | Detector core logic | In progress | Added hot-pixel rejection, sparse event detection, candidate events/minute, persisted baseline event stats, rolling baseline, Z-score, and alarm-state helpers with unit tests. |
 | Guided quick scan UX | In progress | Added a 30-second Quick scan after usable baseline, with scan countdown, motion-stability frame rejection, valid-frame fraction, candidate events/minute, baseline Z-score when available, conservative status, persisted hot-pixel-mask use, and Stop control. |
 | Multi-camera support | In progress | Added per-camera baseline/mask/stat storage, sequential baseline collection, and weighted Quick scan across up to three eligible channels; simultaneous capture and device qualification remain pending. |
 | Patrol scaffolding | In progress | Added bounded foreground-only short bursts with Battery Saver, Balanced, and Max Sensitivity settings; baseline, battery, thermal, motion, posture, interval, and app-visibility gates are enforced. Background service/work remains pending. |
-| Local event log | In progress | Completed quick scans are stored locally as rolling summary records with no images, GPS, or raw frames; CSV export and delete controls are available. |
-| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 12 and `RadPhoneCamera-debug.zip` refreshed for GitHub download. |
+| Local event log | Complete | Users can opt in or out of local scan-summary logging, export CSV, delete the log, or delete all baseline, log, and settings data; no images, GPS, or raw frames are stored. |
+| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 14 and `RadPhoneCamera-debug.zip` refreshed for GitHub download. |
 
 Agent runs should update this section and `IMPLEMENTATION_LOG.md` after completed work.
 

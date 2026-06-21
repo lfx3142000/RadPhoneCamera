@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.2.1` / versionCode `12`.
+- Current debug version: `0.2.3` / versionCode `14`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -44,6 +44,8 @@ trained radiation specialist.
   across app restarts, with automatic migration of earlier single-camera data.
 - Sequential baseline collection for up to three selected Camera2 channels.
 - Baseline age display and a soft refresh reminder after 72 hours.
+- Baseline refresh reasons for app/Android/camera-profile changes, warm thermal
+  drift, and repeated limited-sensitivity scans.
 - Live baseline capture hot-pixel map generation and bounded compact mask
   persistence across app restarts.
 - Quick scan mode after a usable baseline, showing candidate events/minute,
@@ -58,7 +60,10 @@ trained radiation specialist.
 - Patrol does not run a background camera service or background capture.
 - Local rolling scan log for completed quick scans. It stores summary results
   only, not images.
-- Scan-log CSV export through Android share targets and local scan-log delete.
+- Local scan-summary logging is optional and can be turned off without changing
+  detector behavior.
+- Scan-log CSV export through Android share targets, scan-log deletion, and a
+  two-step delete action for all baseline, log, and local settings data.
 - Multi-camera weighted planning from discovered camera detector scores.
 - Hot-pixel map generation from dark frames.
 - Sparse bright-cluster event detection.

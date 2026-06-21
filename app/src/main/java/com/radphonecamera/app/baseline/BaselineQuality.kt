@@ -55,6 +55,7 @@ data class BaselineResult(
     val baselineCandidateEvents: Int = 0,
     val baselineMeanEventsPerFrame: Double = 0.0,
     val baselineVarianceEventsPerFrame: Double = 0.0,
+    val environment: BaselineEnvironmentSnapshot = BaselineEnvironmentSnapshot(),
 ) {
     val enablesNormalAlarmMode: Boolean =
         quality == BaselineQuality.Good || quality == BaselineQuality.Fair

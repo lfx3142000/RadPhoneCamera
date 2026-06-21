@@ -1,5 +1,77 @@
 # Implementation Log
 
+## 2026-06-21
+
+### Summary
+
+Expanded baseline refresh guidance beyond the existing 72-hour age reminder and
+added the first privacy controls. Each new baseline records the app, Android,
+device/camera profile, and thermal state that produced it. The app evaluates
+that snapshot with the local scan log, lets users opt out of future local scan
+summary storage, and can delete all local detector data after confirmation.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.2.3` / versionCode `14` for update-over-install.
+- Persisted per-camera baseline environment metadata: app version, Android API
+  level, device model, Camera2 capability signature, and thermal status.
+- Added deterministic refresh reasons for stale baselines, app updates, Android
+  updates, device/camera-profile changes, warm thermal drift, and repeated
+  limited-sensitivity or invalid scans.
+- Kept earlier baseline records valid when they lack the new metadata; their
+  next successful refresh records the profile automatically.
+- Displayed refresh reasons in the main status and first-use guidance.
+- Added a local scan-summary logging toggle. When off, new Quick, multi-camera,
+  and Patrol scan summaries remain on-screen but are not persisted.
+- Added a two-step Delete local data action that clears baselines, hot-pixel
+  masks, local scan summaries, and detector settings without touching photos,
+  files, GPS, or other device data.
+- Added unit coverage for missing baselines, environment drift, thermal drift,
+  repeated limited scans, and legacy baseline compatibility.
+- Ignored workspace-local Gradle and Kotlin verification caches.
+
+### Tests And Verification
+
+- Ran `test assembleDebug` with the local Android SDK and shared read-only
+  dependency cache.
+- Result: `BUILD SUCCESSFUL`; unit tests and debug APK assembly completed.
+- Kotlin daemon startup remains restricted in the sandbox; Gradle used its
+  successful in-process compiler fallback.
+
+### Files Changed
+
+- `.gitignore`
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineQuality.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineRefresh.kt`
+- `app/src/main/java/com/radphonecamera/app/baseline/BaselineStore.kt`
+- `app/src/main/java/com/radphonecamera/app/data/DetectorSettingsStore.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/baseline/BaselineRefreshEvaluatorTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- The app has no long-running opportunistic dark-data accumulation yet, so it
+  cannot assess the build plan's insufficient-recent-dark-data reminder.
+- Thermal refresh guidance is intentionally one-way: it recommends a refresh
+  only when the current phone state is warmer than the baseline state.
+
+### Recommended Next Tasks
+
+- Add the remaining onboarding/privacy controls for expert diagnostics and the
+  optional model/profile update and anonymous-report settings.
+- Add broad alarm and confidence UX without exact dose-rate claims.
+- Add bounded opportunistic dark-data maintenance while foreground Patrol is
+  active.
+
+---
+
 ## 2026-06-20
 
 ### Summary

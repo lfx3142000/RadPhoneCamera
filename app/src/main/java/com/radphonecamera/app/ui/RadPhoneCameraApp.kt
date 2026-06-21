@@ -17,6 +17,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -27,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.radphonecamera.app.baseline.BaselineProgress
 import com.radphonecamera.app.baseline.BaselineQuality
+import com.radphonecamera.app.baseline.BaselineRefreshRecommendation
 import com.radphonecamera.app.baseline.BaselineResult
 import com.radphonecamera.app.baseline.CameraBaselineCoverage
 import com.radphonecamera.app.baseline.MultiCameraBaselineProgress
@@ -67,6 +69,7 @@ fun RadPhoneCameraApp(
     probeResult: FrameProbeResult?,
     baselineProgress: BaselineProgress,
     baselineResult: BaselineResult?,
+    baselineRefreshRecommendation: BaselineRefreshRecommendation,
     baselinesByCamera: Map<String, BaselineResult>,
     cameraBaselineCoverage: CameraBaselineCoverage?,
     multiCameraBaselineProgress: MultiCameraBaselineProgress?,
@@ -82,8 +85,13 @@ fun RadPhoneCameraApp(
     patrolLastBurstAtMillis: Long,
     patrolNextBurstAtMillis: Long,
     scanEvents: List<ScanEvent>,
+    localEventLogEnabled: Boolean,
+    deleteLocalDataArmed: Boolean,
     onExportScanLog: () -> Unit,
     onClearScanLog: () -> Unit,
+    onSetLocalEventLogEnabled: (Boolean) -> Unit,
+    onRequestDeleteLocalData: () -> Unit,
+    onCancelDeleteLocalData: () -> Unit,
     onRequestCameraPermission: () -> Unit,
     onRefresh: () -> Unit,
     onRunBaseline: (String) -> Unit,
@@ -127,6 +135,7 @@ fun RadPhoneCameraApp(
                     FirstUsePanel(
                         report = report,
                         baselineResult = baselineResult,
+                        baselineRefreshRecommendation = baselineRefreshRecommendation,
                         runningBaselineCameraId = runningBaselineCameraId,
                         runningScanCameraId = runningScanCameraId,
                         runningMultiCameraScan = runningMultiCameraScan,
@@ -141,6 +150,7 @@ fun RadPhoneCameraApp(
                         probeResult = probeResult,
                         baselineProgress = baselineProgress,
                         baselineResult = baselineResult,
+                        baselineRefreshRecommendation = baselineRefreshRecommendation,
                         runningBaselineCameraId = runningBaselineCameraId,
                         liveScanProgress = liveScanProgress,
                         multiCameraScanProgress = multiCameraScanProgress,
@@ -160,6 +170,17 @@ fun RadPhoneCameraApp(
                         patrolNextBurstAtMillis = patrolNextBurstAtMillis,
                         onTogglePatrol = onTogglePatrol,
                         onSetPatrolBatteryMode = onSetPatrolBatteryMode,
+                    )
+                }
+
+                item {
+                    PrivacyPanel(
+                        localEventLogEnabled = localEventLogEnabled,
+                        deleteLocalDataArmed = deleteLocalDataArmed,
+                        anyCaptureRunning = anyCaptureRunning,
+                        onSetLocalEventLogEnabled = onSetLocalEventLogEnabled,
+                        onRequestDeleteLocalData = onRequestDeleteLocalData,
+                        onCancelDeleteLocalData = onCancelDeleteLocalData,
                     )
                 }
 
@@ -190,6 +211,7 @@ fun RadPhoneCameraApp(
                 item {
                     ScanEventLogPanel(
                         scanEvents = scanEvents,
+                        localEventLogEnabled = localEventLogEnabled,
                         onExportScanLog = onExportScanLog,
                         onClearScanLog = onClearScanLog,
                     )
@@ -221,6 +243,7 @@ fun RadPhoneCameraApp(
 @Composable
 private fun ScanEventLogPanel(
     scanEvents: List<ScanEvent>,
+    localEventLogEnabled: Boolean,
     onExportScanLog: () -> Unit,
     onClearScanLog: () -> Unit,
 ) {
@@ -234,6 +257,13 @@ private fun ScanEventLogPanel(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
             )
+            if (!localEventLogEnabled) {
+                Text(
+                    text = "New scan summaries are not being saved.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -262,6 +292,75 @@ private fun ScanEventLogPanel(
             } else {
                 scanEvents.take(MAX_VISIBLE_SCAN_EVENTS).forEach { event ->
                     ScanEventRow(event)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PrivacyPanel(
+    localEventLogEnabled: Boolean,
+    deleteLocalDataArmed: Boolean,
+    anyCaptureRunning: Boolean,
+    onSetLocalEventLogEnabled: (Boolean) -> Unit,
+    onRequestDeleteLocalData: () -> Unit,
+    onCancelDeleteLocalData: () -> Unit,
+) {
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Data and privacy",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Frames are processed and discarded on this phone. No photos, GPS, or cloud upload are used.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Save scan summaries locally",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "Stores summary statistics only; never frames or location.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
+                Switch(
+                    checked = localEventLogEnabled,
+                    onCheckedChange = onSetLocalEventLogEnabled,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = onRequestDeleteLocalData,
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
+                    enabled = !anyCaptureRunning,
+                ) {
+                    Text(if (deleteLocalDataArmed) "Confirm delete" else "Delete local data")
+                }
+                if (deleteLocalDataArmed) {
+                    Button(
+                        onClick = onCancelDeleteLocalData,
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 44.dp),
+                    ) {
+                        Text("Cancel")
+                    }
                 }
             }
         }
@@ -334,6 +433,7 @@ private fun PermissionPanel(onRequestCameraPermission: () -> Unit) {
 private fun FirstUsePanel(
     report: DeviceCameraReport?,
     baselineResult: BaselineResult?,
+    baselineRefreshRecommendation: BaselineRefreshRecommendation,
     runningBaselineCameraId: String?,
     runningScanCameraId: String?,
     runningMultiCameraScan: Boolean,
@@ -352,6 +452,7 @@ private fun FirstUsePanel(
                 text = firstUseMessage(
                     report = report,
                     baselineResult = baselineResult,
+                    baselineRefreshRecommendation = baselineRefreshRecommendation,
                     runningBaselineCameraId = runningBaselineCameraId,
                     runningScanCameraId = runningScanCameraId,
                     runningMultiCameraScan = runningMultiCameraScan,
@@ -382,6 +483,7 @@ private fun StatusPanel(
     probeResult: FrameProbeResult?,
     baselineProgress: BaselineProgress,
     baselineResult: BaselineResult?,
+    baselineRefreshRecommendation: BaselineRefreshRecommendation,
     runningBaselineCameraId: String?,
     liveScanProgress: LiveScanProgress?,
     multiCameraScanProgress: MultiCameraScanProgress?,
@@ -431,6 +533,13 @@ private fun StatusPanel(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
+            if (baselineRefreshRecommendation.shouldRefresh && baselineResult != null) {
+                Text(
+                    text = baselineRefreshRecommendation.summary,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
             liveScanProgress?.let {
                 Text(
                     text = "Quick scan: ${it.alarmState.label}, ${it.eventsPerMinute.fixed(1)} candidate events/min, ${it.validDarkFrames}/${it.framesAnalyzed} valid dark frames.",
@@ -1114,6 +1223,7 @@ private fun Long.timeAgoText(): String {
 private fun firstUseMessage(
     report: DeviceCameraReport?,
     baselineResult: BaselineResult?,
+    baselineRefreshRecommendation: BaselineRefreshRecommendation,
     runningBaselineCameraId: String?,
     runningScanCameraId: String?,
     runningMultiCameraScan: Boolean,
@@ -1122,6 +1232,7 @@ private fun firstUseMessage(
     runningBaselineCameraId != null -> "Baseline is running. Keep the phone dark and still until the timer reaches 0. It will stop automatically."
     runningMultiCameraScan -> "Multi-camera Quick scan is running. Keep the phone face down, dark, and still until all camera channels finish."
     runningScanCameraId != null -> "Quick scan is running. Keep the phone face down, dark, and still until the timer finishes."
+    baselineRefreshRecommendation.shouldRefresh && baselineResult?.enablesNormalAlarmMode == true -> baselineRefreshRecommendation.summary
     baselineResult?.isStale() == true -> "Baseline is usable, but a refresh is recommended. Tap Start baseline with the phone face down and still."
     baselineResult?.enablesNormalAlarmMode == true -> "Baseline is ready. Use Quick scan for a 30-second dark scan, or repeat baseline if conditions change."
     baselineResult != null -> "Baseline is not good enough yet. Try Start baseline again with the phone face down and completely still."
