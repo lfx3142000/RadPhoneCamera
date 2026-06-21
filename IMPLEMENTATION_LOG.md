@@ -4,6 +4,73 @@
 
 ### Summary
 
+Added concise, conservative guidance for every completed detector result and
+completed the planned opt-in Expert diagnostics control. Normal use now
+emphasizes the screening result and appropriate follow-up rather than raw
+detector values.
+
+### Build-Plan Tasks Completed
+
+- Bumped debug app version to `0.2.4` / versionCode `15` for update-over-install.
+- Added conservative result and action guidance for baseline, recheck,
+  elevated, limited-sensitivity, and invalid Quick, multi-camera, and Patrol
+  results. Elevated guidance directs users to a calibrated radiation instrument
+  or qualified specialist and states that the app is not a dosimeter.
+- Added a persisted Expert diagnostics toggle, off by default.
+- Gated Camera2 capability and probe information, camera scoring, technical
+  baseline metrics, scan counts, Z-scores, hot-pixel-mask status, Patrol gate
+  detail, and technical scan-log rows behind the opt-in setting.
+- Preserved ordinary baseline collection, Quick scan, Patrol controls, and
+  conservative screening guidance when diagnostics are off.
+- Added unit coverage for screening guidance safety wording and default
+  diagnostics settings.
+
+### Tests And Verification
+
+- Ran `test assembleDebug` with the local Android SDK and shared read-only
+  dependency cache.
+- Result: `BUILD SUCCESSFUL`; unit tests and debug APK assembly completed.
+- Refreshed and inspected `RadPhoneCamera-debug.zip`; it contains the version
+  15 debug APK.
+- Kotlin daemon startup remains restricted in the sandbox; Gradle used its
+  successful in-process compiler fallback.
+
+### Files Changed
+
+- `app/build.gradle.kts`
+- `app/src/main/java/com/radphonecamera/app/MainActivity.kt`
+- `app/src/main/java/com/radphonecamera/app/data/DetectorSettingsStore.kt`
+- `app/src/main/java/com/radphonecamera/app/detector/ScreeningGuidance.kt`
+- `app/src/main/java/com/radphonecamera/app/ui/RadPhoneCameraApp.kt`
+- `app/src/test/java/com/radphonecamera/app/data/DetectorSettingsTest.kt`
+- `app/src/test/java/com/radphonecamera/app/detector/ScreeningGuidanceTest.kt`
+- `README.md`
+- `BUILD_PLAN.md`
+- `APK_DELIVERY.md`
+- `IMPLEMENTATION_LOG.md`
+- `RadPhoneCamera-debug.zip`
+
+### Blockers
+
+- Broad dose-band labels, calibration profiles, and calibration workflow remain
+  intentionally unimplemented because the app has no approved phone profile or
+  calibration data.
+
+### Recommended Next Tasks
+
+- Add bounded opportunistic dark-data maintenance during eligible foreground
+  Patrol conditions.
+- Add the remaining optional model/profile-update and anonymous-report controls
+  as local-off MVP placeholders without network collection.
+- Create validation, safety, privacy, user-guide, and expert-guide documents
+  before any calibration or device-support claims.
+
+---
+
+## 2026-06-21
+
+### Summary
+
 Expanded baseline refresh guidance beyond the existing 72-hour age reminder and
 added the first privacy controls. Each new baseline records the app, Android,
 device/camera profile, and thermal state that produced it. The app evaluates

@@ -18,7 +18,7 @@ trained radiation specialist.
 - Required permission: camera only.
 - Default processing: local-only, no GPS, no cloud upload, no saved photos.
 - Debug APK: `app/build/outputs/apk/debug/app-debug.apk`.
-- Current debug version: `0.2.3` / versionCode `14`.
+- Current debug version: `0.2.4` / versionCode `15`.
 - Current GitHub debug zip artifact: `RadPhoneCamera-debug.zip`.
 
 ## Implemented So Far
@@ -48,9 +48,8 @@ trained radiation specialist.
   drift, and repeated limited-sensitivity scans.
 - Live baseline capture hot-pixel map generation and bounded compact mask
   persistence across app restarts.
-- Quick scan mode after a usable baseline, showing candidate events/minute,
-  valid dark-frame fraction, scan status, baseline Z-score when available, and
-  hot-pixel-mask status.
+- Quick scan mode after a usable baseline, with conservative screening
+  result/action guidance and optional expert diagnostic statistics.
 - Sequential multi-camera Quick scan across up to three top-weighted Camera2
   channels with a combined weighted result and local summary log entry. Each
   channel requires its own usable baseline before multi-camera scanning starts.
@@ -62,6 +61,9 @@ trained radiation specialist.
   only, not images.
 - Local scan-summary logging is optional and can be turned off without changing
   detector behavior.
+- Expert diagnostics are optional and off by default. When enabled, they show
+  Camera2 capability data, probe data, and technical scan/baseline statistics;
+  they do not collect or share additional data.
 - Scan-log CSV export through Android share targets, scan-log deletion, and a
   two-step delete action for all baseline, log, and local settings data.
 - Multi-camera weighted planning from discovered camera detector scores.

@@ -22,7 +22,8 @@ Last updated: 2026-06-21
 | Multi-camera support | In progress | Added per-camera baseline/mask/stat storage, sequential baseline collection, and weighted Quick scan across up to three eligible channels; simultaneous capture and device qualification remain pending. |
 | Patrol scaffolding | In progress | Added bounded foreground-only short bursts with Battery Saver, Balanced, and Max Sensitivity settings; baseline, battery, thermal, motion, posture, interval, and app-visibility gates are enforced. Background service/work remains pending. |
 | Local event log | Complete | Users can opt in or out of local scan-summary logging, export CSV, delete the log, or delete all baseline, log, and settings data; no images, GPS, or raw frames are stored. |
-| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 14 and `RadPhoneCamera-debug.zip` refreshed for GitHub download. |
+| Screening guidance and expert diagnostics | Complete | Completed conservative result/action guidance and a persisted default-off Expert diagnostics toggle that gates technical camera, probe, baseline, and scan data without collecting extra data. Broad dose-band labels remain pending. |
+| APK artifact | Complete | Debug APK builds at `app/build/outputs/apk/debug/app-debug.apk`; versionCode bumped to 15 and `RadPhoneCamera-debug.zip` refreshed for GitHub download. |
 
 Agent runs should update this section and `IMPLEMENTATION_LOG.md` after completed work.
 

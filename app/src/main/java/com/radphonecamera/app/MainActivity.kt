@@ -776,6 +776,11 @@ class MainActivity : ComponentActivity() {
                 detectorSettingsStore.save(detectorSettings)
             }
 
+            fun setExpertDiagnosticsEnabled(enabled: Boolean) {
+                detectorSettings = detectorSettings.copy(expertDiagnosticsEnabled = enabled)
+                detectorSettingsStore.save(detectorSettings)
+            }
+
             fun deleteLocalData() {
                 baselineStore.clear()
                 scanEventLogStore.clear()
@@ -912,10 +917,12 @@ class MainActivity : ComponentActivity() {
                 patrolNextBurstAtMillis = patrolNextBurstAtMillis,
                 scanEvents = scanEvents,
                 localEventLogEnabled = detectorSettings.localEventLogEnabled,
+                expertDiagnosticsEnabled = detectorSettings.expertDiagnosticsEnabled,
                 deleteLocalDataArmed = deleteLocalDataArmed,
                 onExportScanLog = ::exportScanLog,
                 onClearScanLog = ::clearScanLog,
                 onSetLocalEventLogEnabled = ::setLocalEventLogEnabled,
+                onSetExpertDiagnosticsEnabled = ::setExpertDiagnosticsEnabled,
                 onRequestDeleteLocalData = {
                     if (deleteLocalDataArmed) deleteLocalData() else deleteLocalDataArmed = true
                 },

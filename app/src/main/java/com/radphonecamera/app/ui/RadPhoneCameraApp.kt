@@ -40,6 +40,7 @@ import com.radphonecamera.app.detector.AlarmState
 import com.radphonecamera.app.detector.LiveScanProgress
 import com.radphonecamera.app.detector.MultiCameraScanProgress
 import com.radphonecamera.app.detector.MultiCameraWeighting
+import com.radphonecamera.app.detector.ScreeningGuidance
 import com.radphonecamera.app.patrol.PatrolBatteryMode
 import com.radphonecamera.app.patrol.PatrolStatus
 import com.radphonecamera.app.sensors.BatteryThermalState
@@ -86,10 +87,12 @@ fun RadPhoneCameraApp(
     patrolNextBurstAtMillis: Long,
     scanEvents: List<ScanEvent>,
     localEventLogEnabled: Boolean,
+    expertDiagnosticsEnabled: Boolean,
     deleteLocalDataArmed: Boolean,
     onExportScanLog: () -> Unit,
     onClearScanLog: () -> Unit,
     onSetLocalEventLogEnabled: (Boolean) -> Unit,
+    onSetExpertDiagnosticsEnabled: (Boolean) -> Unit,
     onRequestDeleteLocalData: () -> Unit,
     onCancelDeleteLocalData: () -> Unit,
     onRequestCameraPermission: () -> Unit,
@@ -155,6 +158,7 @@ fun RadPhoneCameraApp(
                         liveScanProgress = liveScanProgress,
                         multiCameraScanProgress = multiCameraScanProgress,
                         motionState = motionState,
+                        expertDiagnosticsEnabled = expertDiagnosticsEnabled,
                         onRefresh = onRefresh,
                     )
                 }
@@ -168,6 +172,7 @@ fun RadPhoneCameraApp(
                         patrolBurstProgress = patrolBurstProgress,
                         patrolLastBurstAtMillis = patrolLastBurstAtMillis,
                         patrolNextBurstAtMillis = patrolNextBurstAtMillis,
+                        expertDiagnosticsEnabled = expertDiagnosticsEnabled,
                         onTogglePatrol = onTogglePatrol,
                         onSetPatrolBatteryMode = onSetPatrolBatteryMode,
                     )
@@ -176,9 +181,11 @@ fun RadPhoneCameraApp(
                 item {
                     PrivacyPanel(
                         localEventLogEnabled = localEventLogEnabled,
+                        expertDiagnosticsEnabled = expertDiagnosticsEnabled,
                         deleteLocalDataArmed = deleteLocalDataArmed,
                         anyCaptureRunning = anyCaptureRunning,
                         onSetLocalEventLogEnabled = onSetLocalEventLogEnabled,
+                        onSetExpertDiagnosticsEnabled = onSetExpertDiagnosticsEnabled,
                         onRequestDeleteLocalData = onRequestDeleteLocalData,
                         onCancelDeleteLocalData = onCancelDeleteLocalData,
                     )
@@ -202,6 +209,7 @@ fun RadPhoneCameraApp(
                             progress = multiCameraScanProgress,
                             runningMultiCameraScan = runningMultiCameraScan,
                             anyCaptureRunning = anyCaptureRunning,
+                            expertDiagnosticsEnabled = expertDiagnosticsEnabled,
                             onRunMultiCameraScan = onRunMultiCameraScan,
                             onStopCapture = onStopCapture,
                         )
@@ -212,6 +220,7 @@ fun RadPhoneCameraApp(
                     ScanEventLogPanel(
                         scanEvents = scanEvents,
                         localEventLogEnabled = localEventLogEnabled,
+                        expertDiagnosticsEnabled = expertDiagnosticsEnabled,
                         onExportScanLog = onExportScanLog,
                         onClearScanLog = onClearScanLog,
                     )
@@ -228,6 +237,7 @@ fun RadPhoneCameraApp(
                             probeResult = probeResult?.takeIf { it.cameraId == camera.cameraId },
                             baselineResult = baselinesByCamera[camera.cameraId],
                             liveScanProgress = liveScanProgress?.takeIf { it.cameraId == camera.cameraId },
+                            expertDiagnosticsEnabled = expertDiagnosticsEnabled,
                             onRunBaseline = { onRunBaseline(camera.cameraId) },
                             onRunQuickScan = { onRunQuickScan(camera.cameraId) },
                             onStopCapture = onStopCapture,
@@ -244,6 +254,7 @@ fun RadPhoneCameraApp(
 private fun ScanEventLogPanel(
     scanEvents: List<ScanEvent>,
     localEventLogEnabled: Boolean,
+    expertDiagnosticsEnabled: Boolean,
     onExportScanLog: () -> Unit,
     onClearScanLog: () -> Unit,
 ) {
@@ -291,7 +302,7 @@ private fun ScanEventLogPanel(
                 )
             } else {
                 scanEvents.take(MAX_VISIBLE_SCAN_EVENTS).forEach { event ->
-                    ScanEventRow(event)
+                    ScanEventRow(event, expertDiagnosticsEnabled)
                 }
             }
         }
@@ -301,9 +312,11 @@ private fun ScanEventLogPanel(
 @Composable
 private fun PrivacyPanel(
     localEventLogEnabled: Boolean,
+    expertDiagnosticsEnabled: Boolean,
     deleteLocalDataArmed: Boolean,
     anyCaptureRunning: Boolean,
     onSetLocalEventLogEnabled: (Boolean) -> Unit,
+    onSetExpertDiagnosticsEnabled: (Boolean) -> Unit,
     onRequestDeleteLocalData: () -> Unit,
     onCancelDeleteLocalData: () -> Unit,
 ) {
@@ -345,6 +358,27 @@ private fun PrivacyPanel(
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Expert diagnostics",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = "Shows camera capabilities and technical scan statistics. It does not collect or share additional data.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
+                Switch(
+                    checked = expertDiagnosticsEnabled,
+                    onCheckedChange = onSetExpertDiagnosticsEnabled,
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
@@ -368,7 +402,7 @@ private fun PrivacyPanel(
 }
 
 @Composable
-private fun ScanEventRow(event: ScanEvent) {
+private fun ScanEventRow(event: ScanEvent, expertDiagnosticsEnabled: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             text = "Camera ${event.cameraId}: ${event.alarmState.label}",
@@ -376,11 +410,15 @@ private fun ScanEventRow(event: ScanEvent) {
             fontWeight = FontWeight.Medium,
         )
         Text(
-            text = "${event.timestampMillis.eventAgeText()} - ${event.eventsPerMinute.fixed(1)} candidate events/min, ${event.validDarkFrames}/${event.framesAnalyzed} valid frames.",
+            text = if (expertDiagnosticsEnabled) {
+                "${event.timestampMillis.eventAgeText()} - ${event.eventsPerMinute.fixed(1)} candidate events/min, ${event.validDarkFrames}/${event.framesAnalyzed} valid frames."
+            } else {
+                event.timestampMillis.eventAgeText()
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary,
         )
-        if (event.baselineFrameCount > 0) {
+        if (expertDiagnosticsEnabled && event.baselineFrameCount > 0) {
             Text(
                 text = "Baseline Z ${event.baselineZScore.fixed(1)} from ${event.baselineFrameCount} baseline frames.",
                 style = MaterialTheme.typography.bodySmall,
@@ -488,6 +526,7 @@ private fun StatusPanel(
     liveScanProgress: LiveScanProgress?,
     multiCameraScanProgress: MultiCameraScanProgress?,
     motionState: MotionState,
+    expertDiagnosticsEnabled: Boolean,
     onRefresh: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -518,11 +557,13 @@ private fun StatusPanel(
                 },
                 style = MaterialTheme.typography.bodyMedium,
             )
-            Text(
-                text = "Motion: ${motionState.quality.label}, ${motionState.posture.label}; ${motionState.reason}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary,
-            )
+            if (expertDiagnosticsEnabled) {
+                Text(
+                    text = "Motion: ${motionState.quality.label}, ${motionState.posture.label}; ${motionState.reason}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
             Text(
                 text = baselineStatusText(
                     baselineProgress = baselineProgress,
@@ -542,19 +583,19 @@ private fun StatusPanel(
             }
             liveScanProgress?.let {
                 Text(
-                    text = "Quick scan: ${it.alarmState.label}, ${it.eventsPerMinute.fixed(1)} candidate events/min, ${it.validDarkFrames}/${it.framesAnalyzed} valid dark frames.",
+                    text = "Screening result: ${ScreeningGuidance.forAlarm(it.alarmState).title}.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
                 )
             }
             multiCameraScanProgress?.let {
                 Text(
-                    text = "Multi-camera scan: ${it.alarmState.label}, ${it.completedCameraCount}/${it.totalCameraCount} channels, ${it.weightedEventsPerMinute.fixed(1)} weighted events/min.",
+                    text = "Multi-camera result: ${ScreeningGuidance.forAlarm(it.alarmState).title}.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
                 )
             }
-            report?.let {
+            if (expertDiagnosticsEnabled) report?.let {
                 val plan = MultiCameraWeighting.plan(it.cameras)
                 Text(
                     text = "Multi-camera plan: ${plan.supportLevel.label}, ${plan.activeCameraCount} usable channels, combined score ${plan.combinedScore}/100.",
@@ -582,6 +623,7 @@ private fun PatrolPanel(
     patrolBurstProgress: LiveScanProgress?,
     patrolLastBurstAtMillis: Long,
     patrolNextBurstAtMillis: Long,
+    expertDiagnosticsEnabled: Boolean,
     onTogglePatrol: () -> Unit,
     onSetPatrolBatteryMode: (PatrolBatteryMode) -> Unit,
 ) {
@@ -626,12 +668,17 @@ private fun PatrolPanel(
                 Text(
                     text = if (progress.remainingMillis > 0L) {
                         "Burst on camera ${progress.cameraId}: ${progress.remainingMillis.asSeconds()} remaining."
-                    } else {
+                    } else if (expertDiagnosticsEnabled) {
                         "Last burst on camera ${progress.cameraId}: ${progress.candidateEvents} candidates in ${progress.framesAnalyzed} frames."
+                    } else {
+                        "Last Patrol check completed."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
                 )
+                if (progress.remainingMillis <= 0L) {
+                    ScreeningGuidanceRow(progress.alarmState)
+                }
             }
             if (patrolStatus.enabled && patrolNextBurstAtMillis > 0L) {
                 Text(
@@ -646,16 +693,18 @@ private fun PatrolPanel(
                     color = MaterialTheme.colorScheme.secondary,
                 )
             }
-            Text(
-                text = "Battery ${batteryThermalState.batteryPercent?.let { "$it%" } ?: "unknown"}, charging ${batteryThermalState.isCharging.label()}, thermal ${batteryThermalState.thermalStatus}.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary,
-            )
-            Text(
-                text = "Motion gate: ${motionState.quality.label}, ${motionState.posture.label}.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary,
-            )
+            if (expertDiagnosticsEnabled) {
+                Text(
+                    text = "Battery ${batteryThermalState.batteryPercent?.let { "$it%" } ?: "unknown"}, charging ${batteryThermalState.isCharging.label()}, thermal ${batteryThermalState.thermalStatus}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                Text(
+                    text = "Motion gate: ${motionState.quality.label}, ${motionState.posture.label}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -760,6 +809,7 @@ private fun MultiCameraScanPanel(
     progress: MultiCameraScanProgress?,
     runningMultiCameraScan: Boolean,
     anyCaptureRunning: Boolean,
+    expertDiagnosticsEnabled: Boolean,
     onRunMultiCameraScan: () -> Unit,
     onStopCapture: () -> Unit,
 ) {
@@ -813,14 +863,17 @@ private fun MultiCameraScanPanel(
                 }
             }
             progress?.let {
-                MultiCameraScanSummary(it)
+                MultiCameraScanSummary(it, expertDiagnosticsEnabled)
             }
         }
     }
 }
 
 @Composable
-private fun MultiCameraScanSummary(progress: MultiCameraScanProgress) {
+private fun MultiCameraScanSummary(
+    progress: MultiCameraScanProgress,
+    expertDiagnosticsEnabled: Boolean,
+) {
     val color = when (progress.alarmState) {
         AlarmState.Baseline -> MaterialTheme.colorScheme.primary
         AlarmState.LowAnomaly,
@@ -838,6 +891,9 @@ private fun MultiCameraScanSummary(progress: MultiCameraScanProgress) {
             fontWeight = FontWeight.Medium,
             color = color,
         )
+        if (progress.remainingMillis <= 0L) {
+            ScreeningGuidanceRow(progress.alarmState)
+        }
         if (progress.activeCameraId != null) {
             Text(
                 text = "Scanning camera ${progress.activeCameraId}; ${progress.completedCameraCount}/${progress.totalCameraCount} channels complete.",
@@ -852,22 +908,24 @@ private fun MultiCameraScanSummary(progress: MultiCameraScanProgress) {
                 color = MaterialTheme.colorScheme.secondary,
             )
         }
-        Text(
-            text = "${progress.weightedEventsPerMinute.fixed(1)} weighted candidate events/min, ${progress.candidateEvents} total candidates.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        Text(
-            text = "${progress.validDarkFrames}/${progress.framesAnalyzed} valid dark frames (${(progress.validFrameFraction * 100.0).fixed(0)}%).",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        if (progress.baselineFrameCount > 0) {
+        if (expertDiagnosticsEnabled) {
             Text(
-                text = "Combined baseline Z: ${progress.baselineZScore.fixed(1)} from ${progress.baselineFrameCount} baseline frames.",
+                text = "${progress.weightedEventsPerMinute.fixed(1)} weighted candidate events/min, ${progress.candidateEvents} total candidates.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
+            Text(
+                text = "${progress.validDarkFrames}/${progress.framesAnalyzed} valid dark frames (${(progress.validFrameFraction * 100.0).fixed(0)}%).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            if (progress.baselineFrameCount > 0) {
+                Text(
+                    text = "Combined baseline Z: ${progress.baselineZScore.fixed(1)} from ${progress.baselineFrameCount} baseline frames.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
         }
         progress.error?.let {
             Text(
@@ -889,6 +947,7 @@ private fun CameraCard(
     probeResult: FrameProbeResult?,
     baselineResult: BaselineResult?,
     liveScanProgress: LiveScanProgress?,
+    expertDiagnosticsEnabled: Boolean,
     onRunBaseline: () -> Unit,
     onRunQuickScan: () -> Unit,
     onStopCapture: () -> Unit,
@@ -916,12 +975,14 @@ private fun CameraCard(
                         color = MaterialTheme.colorScheme.secondary,
                     )
                 }
-                Text(
-                    text = "${camera.detectorScore.score}/100",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                if (expertDiagnosticsEnabled) {
+                    Text(
+                        text = "${camera.detectorScore.score}/100",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
 
             Text(
@@ -930,33 +991,44 @@ private fun CameraCard(
                 fontWeight = FontWeight.Medium,
             )
 
-            CapabilityRows(camera)
+            if (expertDiagnosticsEnabled) {
+                CapabilityRows(camera)
 
-            HorizontalDivider()
+                HorizontalDivider()
 
-            camera.detectorScore.reasons.take(5).forEach { reason ->
-                Text(
-                    text = reason,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
+                camera.detectorScore.reasons.take(5).forEach { reason ->
+                    Text(
+                        text = reason,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(
-                    onClick = onRunProbe,
-                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
-                    enabled = camera.supportsYuv && !anyCaptureRunning,
+            if (expertDiagnosticsEnabled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(if (isProbeRunning) "Probing" else "Test camera")
+                    Button(
+                        onClick = onRunProbe,
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                        enabled = camera.supportsYuv && !anyCaptureRunning,
+                    ) {
+                        Text(if (isProbeRunning) "Probing" else "Test camera")
+                    }
+                    Button(
+                        onClick = onRunBaseline,
+                        modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                        enabled = camera.supportsYuv && !anyCaptureRunning,
+                    ) {
+                        Text(if (isBaselineRunning) "Collecting" else "Start baseline")
+                    }
                 }
-
+            } else {
                 Button(
                     onClick = onRunBaseline,
-                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
+                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = 48.dp),
                     enabled = camera.supportsYuv && !anyCaptureRunning,
                 ) {
                     Text(if (isBaselineRunning) "Collecting" else "Start baseline")
@@ -983,14 +1055,14 @@ private fun CameraCard(
             }
 
             baselineResult?.let {
-                BaselineSummary(it)
+                BaselineSummary(it, expertDiagnosticsEnabled)
             }
 
             liveScanProgress?.let {
-                LiveScanSummary(it)
+                LiveScanSummary(it, expertDiagnosticsEnabled)
             }
 
-            probeResult?.let {
+            if (expertDiagnosticsEnabled) probeResult?.let {
                 ProbeSummary(it)
             }
         }
@@ -1028,7 +1100,10 @@ private fun CapabilityRow(label: String, value: String) {
 }
 
 @Composable
-private fun BaselineSummary(result: BaselineResult) {
+private fun BaselineSummary(
+    result: BaselineResult,
+    expertDiagnosticsEnabled: Boolean,
+) {
     val color = when (result.quality) {
         BaselineQuality.Good -> MaterialTheme.colorScheme.primary
         BaselineQuality.Fair -> MaterialTheme.colorScheme.primary
@@ -1045,7 +1120,11 @@ private fun BaselineSummary(result: BaselineResult) {
             color = color,
         )
         Text(
-            text = "${result.progress.validDarkFrames}/${result.progress.totalFrames} valid dark frames. ${result.message}",
+            text = if (expertDiagnosticsEnabled) {
+                "${result.progress.validDarkFrames}/${result.progress.totalFrames} valid dark frames. ${result.message}"
+            } else {
+                result.message
+            },
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary,
         )
@@ -1061,14 +1140,14 @@ private fun BaselineSummary(result: BaselineResult) {
                 color = MaterialTheme.colorScheme.secondary,
             )
         }
-        if (result.cameraId != null || result.hotPixelCount > 0) {
+        if (expertDiagnosticsEnabled && (result.cameraId != null || result.hotPixelCount > 0)) {
             Text(
                 text = "Camera ${result.cameraId ?: "unknown"} baseline, ${result.hotPixelCount} hot pixels mapped.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
         }
-        if (result.baselineEventFrameCount > 0) {
+        if (expertDiagnosticsEnabled && result.baselineEventFrameCount > 0) {
             Text(
                 text = "Baseline candidates: ${result.baselineCandidateEvents} across ${result.baselineEventFrameCount} sampled frames.",
                 style = MaterialTheme.typography.bodySmall,
@@ -1079,7 +1158,10 @@ private fun BaselineSummary(result: BaselineResult) {
 }
 
 @Composable
-private fun LiveScanSummary(progress: LiveScanProgress) {
+private fun LiveScanSummary(
+    progress: LiveScanProgress,
+    expertDiagnosticsEnabled: Boolean,
+) {
     val color = when (progress.alarmState) {
         AlarmState.Baseline -> MaterialTheme.colorScheme.primary
         AlarmState.LowAnomaly,
@@ -1097,6 +1179,9 @@ private fun LiveScanSummary(progress: LiveScanProgress) {
             fontWeight = FontWeight.Medium,
             color = color,
         )
+        if (progress.remainingMillis <= 0L) {
+            ScreeningGuidanceRow(progress.alarmState)
+        }
         if (progress.remainingMillis > 0L) {
             Text(
                 text = "Time remaining: ${progress.remainingMillis.asSeconds()}",
@@ -1104,32 +1189,34 @@ private fun LiveScanSummary(progress: LiveScanProgress) {
                 color = MaterialTheme.colorScheme.secondary,
             )
         }
-        Text(
-            text = "${progress.eventsPerMinute.fixed(1)} candidate events/min, ${progress.candidateEvents} total candidates.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        Text(
-            text = "${progress.validDarkFrames}/${progress.framesAnalyzed} valid dark frames (${(progress.validFrameFraction * 100.0).fixed(0)}%).",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary,
-        )
-        if (progress.baselineFrameCount > 0) {
+        if (expertDiagnosticsEnabled) {
             Text(
-                text = "Baseline Z: ${progress.baselineZScore.fixed(1)} from ${progress.baselineFrameCount} baseline frames.",
+                text = "${progress.eventsPerMinute.fixed(1)} candidate events/min, ${progress.candidateEvents} total candidates.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            Text(
+                text = "${progress.validDarkFrames}/${progress.framesAnalyzed} valid dark frames (${(progress.validFrameFraction * 100.0).fixed(0)}%).",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+            if (progress.baselineFrameCount > 0) {
+                Text(
+                    text = "Baseline Z: ${progress.baselineZScore.fixed(1)} from ${progress.baselineFrameCount} baseline frames.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
+            Text(
+                text = if (progress.hotPixelMaskApplied) {
+                    "Hot-pixel mask active for this scan."
+                } else {
+                    "Hot-pixel mask not loaded; refresh baseline first for better rejection."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.secondary,
             )
         }
-        Text(
-            text = if (progress.hotPixelMaskApplied) {
-                "Hot-pixel mask active for this scan."
-            } else {
-                "Hot-pixel mask not loaded; refresh baseline first for better rejection."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.secondary,
-        )
         progress.error?.let {
             Text(
                 text = "Scan note: $it",
@@ -1138,6 +1225,21 @@ private fun LiveScanSummary(progress: LiveScanProgress) {
             )
         }
     }
+}
+
+@Composable
+private fun ScreeningGuidanceRow(alarmState: AlarmState) {
+    val guidance = ScreeningGuidance.forAlarm(alarmState)
+    Text(
+        text = guidance.detail,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.secondary,
+    )
+    Text(
+        text = guidance.action,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.secondary,
+    )
 }
 
 @Composable
